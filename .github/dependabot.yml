@@ -23,6 +23,12 @@ updates:
           - "vitest*"
           - "@vitejs/*"
           - "@vitest/*"
+      react-ecosystem:
+        patterns:
+          - "react"
+          - "react-*"
+          - "@types/react"
+          - "@types/react-*"
 
   # 3. Docker (Dockerfile)
   - package-ecosystem: "docker"
