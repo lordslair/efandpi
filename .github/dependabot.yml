@@ -1,0 +1,35 @@
+version: 2
+updates:
+  # 1. Python Backend (e.g., requirements.txt, pyproject.toml, or Pipfile)
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+
+  # 2. Vite Frontend (package.json)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    groups:
+      vite-ecosystem:
+        patterns:
+          - "vite*"
+          - "@vitejs/*"
+          - "vitest*"
+
+  # 3. Docker (Dockerfile)
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+
+  # 4. GitHub Actions (Optional but recommended)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
