@@ -15,6 +15,13 @@ router = APIRouter(prefix="/locations/{location_id}/items", tags=["items"])
 _off_api = openfoodfacts.API(user_agent="efandpi/1.0")
 
 
+def _off_field(data: dict, field: str) -> str | None:
+    value = data.get(field)
+    if value:
+        return value
+    return (data.get("product") or {}).get(field) or None
+
+
 async def _get_location_for_user(
     location_id: int,
     current_user: User,
@@ -47,12 +54,15 @@ async def lookup_barcode(
         product = None
 
     if product and product.get("status") != 0:
-        return ProductLookup(
-            barcode=barcode,
-            name=product.get("product", {}).get("product_name") or None,
-            thumbnail_url=product.get("product", {}).get("image_thumb_url") or None,
-            found=True,
-        )
+        name = _off_field(product, "product_name")
+        thumbnail_url = _off_field(product, "image_thumb_url")
+        if name or thumbnail_url:
+            return ProductLookup(
+                barcode=barcode,
+                name=name,
+                thumbnail_url=thumbnail_url,
+                found=True,
+            )
 
     return ProductLookup(barcode=barcode, name=None, thumbnail_url=None, found=False)
 

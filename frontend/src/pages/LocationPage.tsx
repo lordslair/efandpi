@@ -213,7 +213,7 @@ export default function LocationPage() {
                   className="input-field text-sm py-2"
                   value={manualName}
                   onChange={(e) => setManualName(e.target.value)}
-                  placeholder="Product name (required)"
+                  placeholder={scanConfirm.name || "Product name (required)"}
                 />
               </div>
             </div>
