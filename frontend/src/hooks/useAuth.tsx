@@ -38,8 +38,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
+export function requireAuthContext(ctx: AuthContextValue | null): AuthContextValue {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
+}
+
+export function useAuth(): AuthContextValue {
+  return requireAuthContext(useContext(AuthContext));
 }

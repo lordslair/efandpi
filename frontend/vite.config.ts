@@ -1,6 +1,11 @@
+/// <reference types="vitest" />
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [
@@ -56,8 +61,28 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:5000",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
+        rewrite: (p) => p.replace(/^\/api/, ""),
       },
+    },
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./tests/setup.ts"],
+    globals: true,
+    env: {
+      VITE_API_URL: "http://127.0.0.1:9",
+    },
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/main.tsx"],
+    },
+    alias: {
+      "virtual:pwa-register/react": path.resolve(
+        __dirname,
+        "tests/mocks/pwa-register-react.ts"
+      ),
     },
   },
 });

@@ -23,7 +23,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 // Auth
 export async function login(email: string, password: string): Promise<string> {
-  const body = new URLSearchParams({ username: email, password });
+  const body = new URLSearchParams({ username: email, password }).toString();
   const token = getToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
