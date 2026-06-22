@@ -15,7 +15,7 @@
   "dependencies": {
     "browserslist": "^4.28.4",
     "html-to-image": "^1.11.11",
-    "react": "^18.3.1",
+    "react": "^19.2.7",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
     "react-zxing": "^2.1.0"
@@ -24,7 +24,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/react": "^18.3.11",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.2",
     "@vitest/coverage-v8": "^3.2.6",
