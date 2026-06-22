@@ -73,7 +73,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ vars.DOCKER_USERNAME }}/mountyhapp-${{ matrix.app }}
+          images: ${{ vars.DOCKER_USERNAME }}/efandpi-${{ matrix.app }}
           tags: |
             type=sha,prefix=,suffix=,format=short
             type=edge
