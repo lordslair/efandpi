@@ -8,7 +8,7 @@
         }
     }
     
-    reverse_proxy frontend:80
+    reverse_proxy frontend:3000
 }
 
 {$MY_API_DOMAIN} {
