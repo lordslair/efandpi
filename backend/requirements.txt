@@ -7,5 +7,5 @@ aiosqlite==0.21.0
 bcrypt==5.0.0
 python-jose[cryptography]==3.4.0
 python-multipart==0.0.20
-openfoodfacts==5.1.0
+openfoodfacts==5.2.0
 httpx==0.28.1
