@@ -1,0 +1,91 @@
+name: Application build
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  # --- BACKEND TESTING JOB ---
+  test-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python 🐍
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Install Dependencies ⬇️
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Run Pytest ⚙️
+        run: pytest
+
+  # --- FRONTEND TESTING JOB ---
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v7
+      - name: Set up Node 🔧
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    strategy:
+      matrix:
+        app: [ "backend", "frontend" ]
+    
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v7
+
+      # 1. Setup QEMU (The translator for ARM64)
+      - name: Set up QEMU 🔧
+        uses: docker/setup-qemu-action@v4
+
+      # 2. Setup Buildx (The tool that manages multi-arch)
+      - name: Set up Docker Buildx 🔧
+        uses: docker/setup-buildx-action@v4
+
+      # 3. Login to Docker Hub (Store your credentials in GitHub Secrets)
+      - name: Log in to Docker Hub 🔐
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extracting Metadata 🔧
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ vars.DOCKER_USERNAME }}/mountyhapp-${{ matrix.app }}
+          tags: |
+            type=sha,prefix=,suffix=,format=short
+            type=edge
+
+      # 4. Build ONLY for pull_requests
+      - name: Build 🏗️
+        uses: docker/build-push-action@v7
+        with:
+          context: ./${{ matrix.app }}
+          platforms: linux/amd64,linux/arm64
+          file: ./${{ matrix.app }}/Dockerfile
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
