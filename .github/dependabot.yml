@@ -18,9 +18,11 @@ updates:
     groups:
       vite-ecosystem:
         patterns:
-          - "vite*"
-          - "@vitejs/*"
+          - "vite"
+          - "vite-*"
           - "vitest*"
+          - "@vitejs/*"
+          - "@vitest/*"
 
   # 3. Docker (Dockerfile)
   - package-ecosystem: "docker"
