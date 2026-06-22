@@ -1,0 +1,64 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data
+    container_name: efandpi-backend
+    ports:
+      - "5000:5000"
+    networks:
+      - efandpi
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    container_name: efandpi-frontend
+    ports:
+      - "3000:80"
+    networks:
+      - efandpi
+    depends_on:
+      - backend
+
+  caddy:
+    image: lordslair/caddy-ovh:2.11.2
+    container_name: efandpi-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # Optionnel : pour le support de HTTP/3
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ./caddy/data:/data
+      - ./caddy/config:/config
+    environment:
+      - OVH_APPLICATION_KEY=${OVH_APPLICATION_KEY}
+      - OVH_APPLICATION_SECRET=${OVH_APPLICATION_SECRET}
+      - OVH_CONSUMER_KEY=${OVH_CONSUMER_KEY}
+      - MY_DOMAIN=${MY_DOMAIN}
+      - MY_API_DOMAIN=${MY_API_DOMAIN}
+      - MY_DB_DOMAIN=${MY_DB_DOMAIN}
+      - HTPASSWD_USERNAME=${HTPASSWD_USERNAME}
+      - HTPASSWD_PASSWORD=${HTPASSWD_PASSWORD}
+    depends_on:
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:2019/reverse_proxy/upstreams"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - efandpi
+
+networks:
+  efandpi:
+    driver: bridge
+    enable_ipv6: false

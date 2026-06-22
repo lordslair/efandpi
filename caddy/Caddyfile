@@ -1,0 +1,25 @@
+{$MY_DOMAIN} {
+    tls {
+        dns ovh {
+            endpoint "ovh-eu"
+            application_key {$OVH_APPLICATION_KEY}
+            application_secret {$OVH_APPLICATION_SECRET}
+            consumer_key {$OVH_CONSUMER_KEY}
+        }
+    }
+    
+    reverse_proxy frontend:80
+}
+
+{$MY_API_DOMAIN} {
+    tls {
+        dns ovh {
+            endpoint "ovh-eu"
+            application_key {$OVH_APPLICATION_KEY}
+            application_secret {$OVH_APPLICATION_SECRET}
+            consumer_key {$OVH_CONSUMER_KEY}
+        }
+    }
+    
+    reverse_proxy backend:5000
+}
