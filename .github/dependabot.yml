@@ -5,6 +5,10 @@ updates:
     directory: "/backend"
     schedule:
       interval: "weekly"
+    groups:
+      pytest-ecosystem:
+        patterns:
+          - "pytest*"
 
   # 2. Vite Frontend (package.json)
   - package-ecosystem: "npm"
