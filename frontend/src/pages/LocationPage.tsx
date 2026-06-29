@@ -146,29 +146,30 @@ export default function LocationPage() {
       </header>
 
       <main className="px-4 py-4 max-w-lg mx-auto">
-        {/* Scan button */}
-        <button
-          onClick={() => setScanning(true)}
-          className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2 mb-3"
-          disabled={lookupLoading}
-        >
-          {lookupLoading ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Looking up…
-            </>
-          ) : (
-            <>📷 Scan Barcode</>
-          )}
-        </button>
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setScanning(true)}
+            className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-1.5"
+            disabled={lookupLoading}
+          >
+            {lookupLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Looking up…
+              </>
+            ) : (
+              <>📷 Scan Barcode</>
+            )}
+          </button>
 
-        <button
-          onClick={() => setManualImport(true)}
-          className="btn-secondary w-full py-3 text-base flex items-center justify-center gap-2 mb-4"
-          disabled={lookupLoading}
-        >
-          ✏️ Manual Import
-        </button>
+          <button
+            onClick={() => setManualImport(true)}
+            className="btn-secondary flex-1 py-2.5 text-sm flex items-center justify-center gap-1.5"
+            disabled={lookupLoading}
+          >
+            ✏️ Manual Import
+          </button>
+        </div>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-4">
