@@ -34,15 +34,30 @@ ACCESS_TOKEN_EXPIRE_MINUTES=10080
 DATABASE_URL=sqlite+aiosqlite:////data/efandpi.db
 ```
 
+For production HTTPS via Caddy (see below), also set:
+
+```dotenv
+MY_DOMAIN=app.example.com
+MY_API_DOMAIN=api.example.com
+OVH_APPLICATION_KEY=...
+OVH_APPLICATION_SECRET=...
+OVH_CONSUMER_KEY=...
+```
+
 ### 2. Start with Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000
-- API docs: http://localhost:5000/docs
+| Service | URL (local) |
+|---------|-------------|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:5000 |
+| API docs | http://localhost:5000/docs |
+| Caddy (HTTPS) | ports 80 / 443 (when domain env vars are set) |
+
+The frontend nginx container proxies `/api/*` to the backend, so the app works at `http://localhost:3000` without extra configuration.
 
 ### 3. Use on your phone (same network)
 
@@ -51,7 +66,7 @@ Open **http://\<your-server-ip\>:3000** in your phone's browser.
 > **Important — HTTPS is required for camera access on mobile.**
 > Chrome and Safari on Android/iOS only allow camera access from secure contexts.
 > `localhost` works fine for development, but accessing via a LAN IP requires HTTPS.
-> See [HTTPS setup](#https-for-lan-access) below.
+> See [HTTPS setup](#https-setup) below.
 
 ---
 
@@ -62,9 +77,14 @@ efandpi/
 ├── docker-compose.yml
 ├── .env.example
 ├── data/                    # SQLite database (persisted via Docker volume)
+├── caddy/
+│   └── Caddyfile            # TLS termination + reverse proxy (OVH DNS)
 ├── backend/
 │   ├── Dockerfile
 │   ├── requirements.txt
+│   ├── requirements-dev.txt # pytest + pytest-asyncio
+│   ├── pytest.ini
+│   ├── tests/               # pytest suite
 │   └── app/
 │       ├── main.py          # FastAPI app, CORS, lifespan
 │       ├── database.py      # SQLAlchemy async engine
@@ -77,13 +97,16 @@ efandpi/
 │           └── items.py     # GET/POST/PATCH/DELETE /locations/{id}/items
 │                            # GET /locations/{id}/items/lookup?barcode=
 └── frontend/
-    ├── Dockerfile           # Node build + nginx serve
+    ├── Dockerfile           # Node build + nginx serve (port 3000)
     ├── nginx.conf           # SPA fallback + /api proxy + gzip
+    ├── TESTING.md           # Frontend test suite reference
+    ├── tests/               # Vitest + React Testing Library + MSW
     ├── scripts/
     │   └── generate-icons.mjs  # Generates PWA PNGs (no deps, pure Node.js)
     └── src/
         ├── api/client.ts    # Typed fetch wrapper for all API calls
         ├── hooks/useAuth.tsx # AuthContext + JWT localStorage
+        ├── router.ts        # React Router v7 future flags
         ├── pages/
         │   ├── LoginPage.tsx
         │   ├── HomePage.tsx     # Location selector grid
@@ -113,49 +136,32 @@ efandpi/
 
 ---
 
-## HTTPS for LAN Access
+## HTTPS Setup
 
-Camera access requires a secure context (`https://`). For phone access on your local network:
+Camera access requires a secure context (`https://`). The stack includes **Caddy** with OVH DNS challenge for automatic TLS certificates.
 
-### Option A — Caddy (recommended, auto TLS)
+### Production (included in docker-compose)
 
-```yaml
-# Add to docker-compose.yml
-  caddy:
-    image: caddy:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-    networks:
-      - efandpi
+Caddy is already configured in `docker-compose.yml`. Set these in `.env`:
 
-volumes:
-  caddy_data:
+```dotenv
+MY_DOMAIN=app.example.com          # frontend → frontend:3000
+MY_API_DOMAIN=api.example.com      # backend API → backend:5000
+OVH_APPLICATION_KEY=...
+OVH_APPLICATION_SECRET=...
+OVH_CONSUMER_KEY=...
 ```
 
-```
-# Caddyfile — replace with your server's LAN IP or hostname
-http://192.168.1.100 {
-    reverse_proxy frontend:80
-}
-```
+The `caddy/Caddyfile` terminates TLS and reverse-proxies each domain to the correct container. The frontend uses a relative `/api` path proxied by nginx, so `MY_API_DOMAIN` is only needed if you build the frontend with a custom `VITE_API_URL`.
 
-Then access `http://192.168.1.100` on your phone. Caddy serves it over HTTP but you can enable a self-signed cert with `tls internal` for HTTPS.
+### Local / LAN development options
 
-### Option B — Self-signed certificate with nginx
+- **Direct HTTP** — use `http://localhost:3000` (camera works on localhost)
+- **ngrok / Cloudflare Tunnel** — expose port 3000 with a public HTTPS URL:
 
-Generate a cert and mount it into a reverse-proxy nginx container. On Android, install the certificate as a trusted CA. On iOS, install via Settings → General → VPN & Device Management.
-
-### Option C — ngrok / Cloudflare Tunnel (for development)
-
-```bash
-ngrok http 3000
-```
-
-Opens a public HTTPS URL you can open on any device.
+  ```bash
+  ngrok http 3000
+  ```
 
 ---
 
@@ -167,10 +173,10 @@ Opens a public HTTPS URL you can open on any device.
 cd backend
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 cp ../.env.example ../.env
-export $(cat ../.env | xargs)
-mkdir -p /data
+export $(grep -v '^#' ../.env | xargs)
+mkdir -p ../data
 uvicorn app.main:app --reload --port 5000
 ```
 
@@ -186,19 +192,47 @@ The Vite dev server proxies `/api/*` → `http://localhost:5000/*` automatically
 
 ---
 
+## Testing
+
+Both backend and frontend have test suites run in CI on pull requests.
+
+### Backend (pytest)
+
+```bash
+cd backend
+pip install -r requirements.txt -r requirements-dev.txt
+pytest
+```
+
+### Frontend (Vitest)
+
+```bash
+cd frontend
+npm install
+npm run test            # run once (CI mode)
+npm run test:watch      # interactive watch mode
+npm run test:coverage   # generate coverage/ report
+```
+
+See `frontend/TESTING.md` for the full testing guide (MSW, patterns, configuration).
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Python 3.12, FastAPI, SQLAlchemy (async), aiosqlite |
-| Auth | JWT (`python-jose`), bcrypt (`passlib`) |
+| Backend | Python 3.14, FastAPI, SQLAlchemy (async), aiosqlite, greenlet |
+| Auth | JWT (`python-jose`), bcrypt |
 | Product data | `openfoodfacts` Python SDK v5 |
 | Database | SQLite (file in `./data/`) |
-| Frontend | React 18, Vite, TypeScript, Tailwind CSS |
+| Frontend | React 18, Vite, TypeScript, Tailwind CSS v4 |
 | Barcode scanning | `react-zxing` (ZXing-C++ via WebAssembly) |
 | Image export | `html-to-image` |
 | PWA | `vite-plugin-pwa` (Workbox service worker) |
-| Serving | nginx (static + `/api` reverse proxy) |
+| Serving | nginx (static on port 3000 + `/api` reverse proxy) |
+| TLS / reverse proxy | Caddy with OVH DNS challenge |
+| Testing | pytest (backend), Vitest + RTL + MSW (frontend) |
 | Containers | Docker, Docker Compose |
 
 ---
