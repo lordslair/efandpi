@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import * as api from "../api/client";
 import BarcodeScanner from "../components/BarcodeScanner";
+import ManualImportModal from "../components/ManualImportModal";
 import ItemCard from "../components/ItemCard";
 import ExportButton from "../components/ExportButton";
 
@@ -22,6 +23,7 @@ export default function LocationPage() {
   const [items, setItems] = useState<api.Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [manualImport, setManualImport] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [scanConfirm, setScanConfirm] = useState<ScanConfirm | null>(null);
   const [manualName, setManualName] = useState("");
@@ -113,6 +115,18 @@ export default function LocationPage() {
     setItems((prev) => prev.filter((i) => i.id !== itemId));
   }
 
+  function handleItemAdded(item: api.Item) {
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.id === item.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = item;
+        return next;
+      }
+      return [...prev, item];
+    });
+  }
+
   const FALLBACK =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23f3f4f6'/%3E%3Ctext x='40' y='48' font-size='32' text-anchor='middle'%3E🥫%3C/text%3E%3C/svg%3E";
 
@@ -135,7 +149,7 @@ export default function LocationPage() {
         {/* Scan button */}
         <button
           onClick={() => setScanning(true)}
-          className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2 mb-4"
+          className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2 mb-3"
           disabled={lookupLoading}
         >
           {lookupLoading ? (
@@ -146,6 +160,14 @@ export default function LocationPage() {
           ) : (
             <>📷 Scan Barcode</>
           )}
+        </button>
+
+        <button
+          onClick={() => setManualImport(true)}
+          className="btn-secondary w-full py-3 text-base flex items-center justify-center gap-2 mb-4"
+          disabled={lookupLoading}
+        >
+          ✏️ Manual Import
         </button>
 
         {error && (
@@ -163,7 +185,7 @@ export default function LocationPage() {
           <div className="text-center py-16 text-gray-400">
             <div className="text-5xl mb-3">📭</div>
             <p className="font-medium">This location is empty</p>
-            <p className="text-sm mt-1">Scan a barcode to add your first item</p>
+            <p className="text-sm mt-1">Scan a barcode or use Manual Import to add your first item</p>
           </div>
         ) : (
           <div ref={listRef} className="space-y-2">
@@ -187,6 +209,14 @@ export default function LocationPage() {
       {/* Barcode scanner overlay */}
       {scanning && (
         <BarcodeScanner onScan={handleScan} onClose={() => setScanning(false)} />
+      )}
+
+      {manualImport && (
+        <ManualImportModal
+          locationId={locationId}
+          onClose={() => setManualImport(false)}
+          onAdded={handleItemAdded}
+        />
       )}
 
       {/* Scan confirmation modal */}

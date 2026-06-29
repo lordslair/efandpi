@@ -312,3 +312,26 @@ describe("LocationPage — item quantity and delete", () => {
     expect(screen.getByText("This location is empty")).toBeInTheDocument();
   });
 });
+
+describe("LocationPage — manual import", () => {
+  it("opens the manual import modal and adds a selected product", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("This location is empty");
+
+    await user.click(screen.getByRole("button", { name: /Manual Import/i }));
+    expect(screen.getByText("Manual Import", { selector: "h3" })).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText(/Nutella, pasta/i), "Nutella");
+    await user.click(screen.getByRole("button", { name: /Search Open Food Facts/i }));
+
+    await screen.findByText("Nutella");
+    await user.click(screen.getByRole("button", { name: /Nutella/i }));
+    await user.click(screen.getByRole("button", { name: /^Add$/ }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Manual Import", { selector: "h3" })).not.toBeInTheDocument()
+    );
+    expect(await screen.findByText("Nutella")).toBeInTheDocument();
+  });
+});

@@ -63,3 +63,9 @@ class ProductLookup(BaseModel):
     name: str | None
     thumbnail_url: str | None
     found: bool
+
+
+class ProductSearchResult(BaseModel):
+    barcode: str
+    name: str
+    thumbnail_url: str | None

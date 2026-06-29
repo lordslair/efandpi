@@ -68,6 +68,64 @@ async def test_lookup_not_found(
 
 
 @pytest.mark.asyncio
+async def test_search_requires_auth(client: AsyncClient, location: dict):
+    response = await client.get(
+        f"/locations/{location['id']}/items/search",
+        params={"q": "nutella"},
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@patch("app.routers.items._off_api")
+async def test_search_empty_query_returns_empty_list(
+    mock_off_api: MagicMock,
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    response = await client.get(
+        f"/locations/{location['id']}/items/search",
+        params={"q": "   "},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json() == []
+    mock_off_api.product.text_search.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("app.routers.items._off_api")
+async def test_search_returns_products(
+    mock_off_api: MagicMock,
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    mock_off_api.product.text_search.return_value = {
+        "products": [
+            {
+                "code": "3017620422003",
+                "product_name": "Nutella",
+                "image_thumb_url": "https://example.com/nutella.jpg",
+            },
+            {"code": "123", "product_name": ""},
+        ]
+    }
+
+    response = await client.get(
+        f"/locations/{location['id']}/items/search",
+        params={"q": "nutella"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["barcode"] == "3017620422003"
+    assert data[0]["name"] == "Nutella"
+
+
+@pytest.mark.asyncio
 async def test_add_list_update_and_delete_item(
     client: AsyncClient,
     auth_headers: dict[str, str],

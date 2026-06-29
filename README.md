@@ -1,6 +1,6 @@
 # EfanDpi
 
-A Progressive Web App (PWA) for tracking what you have in your fridge, pantry, and other storage locations. Scan barcodes with your phone camera, look up products via Open Food Facts, and manage quantities from a clean mobile UI.
+A Progressive Web App (PWA) for tracking what you have in your fridge, pantry, and other storage locations. Scan barcodes with your phone camera, search products by name via Open Food Facts, and manage quantities from a clean mobile UI.
 
 ---
 
@@ -9,7 +9,8 @@ A Progressive Web App (PWA) for tracking what you have in your fridge, pantry, a
 - **Authentication** — register and sign in with email + password (JWT)
 - **Locations** — create named storage locations (Fridge, Pantry, Cellar, …)
 - **Barcode scanning** — scan EAN/UPC barcodes with your phone's rear camera
-- **Open Food Facts** — automatic product name and thumbnail lookup
+- **Manual import** — search Open Food Facts by product name and pick from matching results
+- **Open Food Facts** — automatic product name and thumbnail lookup (barcode scan or text search)
 - **Inventory management** — add items, adjust quantities with +/− buttons, delete items
 - **Export** — generate a PNG image of any location's inventory list
 - **PWA** — installable on Android/iOS, works in standalone mode
@@ -70,6 +71,17 @@ Open **http://\<your-server-ip\>:3000** in your phone's browser.
 
 ---
 
+## Adding Items
+
+Each location offers two ways to add products:
+
+1. **Scan Barcode** — use the phone camera to read an EAN/UPC code; the app looks up the product on Open Food Facts and lets you confirm the name and quantity before saving.
+2. **Manual Import** — enter a product name, search Open Food Facts for matches, select the correct product from the results, then tap **Add** to store it in the location.
+
+Both flows use the same inventory rules: adding an item with an existing barcode in that location increments its quantity instead of creating a duplicate row.
+
+---
+
 ## Project Structure
 
 ```
@@ -96,6 +108,7 @@ efandpi/
 │           ├── locations.py # GET/POST/DELETE /locations
 │           └── items.py     # GET/POST/PATCH/DELETE /locations/{id}/items
 │                            # GET /locations/{id}/items/lookup?barcode=
+│                            # GET /locations/{id}/items/search?q=
 └── frontend/
     ├── Dockerfile           # Node build + nginx serve (port 3000)
     ├── nginx.conf           # SPA fallback + /api proxy + gzip
@@ -110,11 +123,12 @@ efandpi/
         ├── pages/
         │   ├── LoginPage.tsx
         │   ├── HomePage.tsx     # Location selector grid
-        │   └── LocationPage.tsx # Item list + scanner + export
+        │   └── LocationPage.tsx # Item list + scanner + manual import + export
         └── components/
-            ├── BarcodeScanner.tsx  # react-zxing, rear camera, scan overlay
-            ├── ItemCard.tsx        # Thumbnail, name, qty controls, delete
-            └── ExportButton.tsx    # html-to-image PNG download
+            ├── BarcodeScanner.tsx   # react-zxing, rear camera, scan overlay
+            ├── ManualImportModal.tsx # Open Food Facts text search + product picker
+            ├── ItemCard.tsx         # Thumbnail, name, qty controls, delete
+            └── ExportButton.tsx     # html-to-image PNG download
 ```
 
 ---
@@ -130,6 +144,7 @@ efandpi/
 | `DELETE` | `/locations/{id}` | Delete location and all its items |
 | `GET` | `/locations/{id}/items` | List items in a location |
 | `GET` | `/locations/{id}/items/lookup?barcode=` | Look up barcode via Open Food Facts |
+| `GET` | `/locations/{id}/items/search?q=` | Search products by name via Open Food Facts |
 | `POST` | `/locations/{id}/items` | Add item (increments qty if barcode exists) |
 | `PATCH` | `/locations/{id}/items/{itemId}` | Update quantity `{quantity}` |
 | `DELETE` | `/locations/{id}/items/{itemId}` | Remove item |

@@ -81,8 +81,23 @@ export interface ProductLookup {
   found: boolean;
 }
 
+export interface ProductSearchResult {
+  barcode: string;
+  name: string;
+  thumbnail_url: string | null;
+}
+
 export async function lookupBarcode(locationId: number, barcode: string): Promise<ProductLookup> {
   return request(`/locations/${locationId}/items/lookup?barcode=${encodeURIComponent(barcode)}`);
+}
+
+export async function searchProducts(
+  locationId: number,
+  query: string
+): Promise<ProductSearchResult[]> {
+  return request(
+    `/locations/${locationId}/items/search?q=${encodeURIComponent(query)}`
+  );
 }
 
 export async function getItems(locationId: number): Promise<Item[]> {

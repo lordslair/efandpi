@@ -53,6 +53,18 @@ export const handlers = [
     return HttpResponse.json({ barcode, name: null, thumbnail_url: null, found: false });
   }),
 
+  http.get(api("/locations/:id/items/search"), ({ request }) => {
+    const q = new URL(request.url).searchParams.get("q") ?? "";
+    if (!q.trim()) return HttpResponse.json([]);
+    return HttpResponse.json([
+      {
+        barcode: "3017620422003",
+        name: "Nutella",
+        thumbnail_url: null,
+      },
+    ]);
+  }),
+
   http.get(api("/locations/:id/items"), () => HttpResponse.json([])),
 
   http.post(api("/locations/:id/items"), async ({ request }) => {

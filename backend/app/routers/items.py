@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth import get_current_user
 from ..database import get_db
 from ..models import Item, Location, User
-from ..schemas import ItemCreate, ItemOut, ItemQuantityUpdate, ProductLookup
+from ..schemas import ItemCreate, ItemOut, ItemQuantityUpdate, ProductLookup, ProductSearchResult
 
 router = APIRouter(prefix="/locations/{location_id}/items", tags=["items"])
 
@@ -65,6 +65,41 @@ async def lookup_barcode(
             )
 
     return ProductLookup(barcode=barcode, name=None, thumbnail_url=None, found=False)
+
+
+@router.get("/search", response_model=list[ProductSearchResult])
+async def search_products(
+    location_id: int,
+    q: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    page_size: int = 20,
+):
+    await _get_location_for_user(location_id, current_user, db)
+
+    query = q.strip()
+    if not query:
+        return []
+
+    try:
+        data = _off_api.product.text_search(query, page_size=min(page_size, 24))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Product search unavailable")
+
+    results: list[ProductSearchResult] = []
+    for product in data.get("products") or []:
+        barcode = product.get("code") or _off_field(product, "code")
+        name = _off_field(product, "product_name")
+        if not barcode or not name:
+            continue
+        results.append(
+            ProductSearchResult(
+                barcode=str(barcode),
+                name=name,
+                thumbnail_url=_off_field(product, "image_thumb_url"),
+            )
+        )
+    return results
 
 
 @router.get("", response_model=list[ItemOut])
