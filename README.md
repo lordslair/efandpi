@@ -108,9 +108,12 @@ efandpi/
 │   ├── requirements.txt
 │   ├── requirements-dev.txt # pytest + pytest-asyncio
 │   ├── pytest.ini
-│   ├── tests/               # pytest suite (auth, items, locations, shares)
+│   ├── scripts/
+│   │   └── export_openapi.py # Export openapi.json + openapi.yaml from the app
+│   ├── tests/               # pytest suite (auth, items, locations, shares, openapi)
 │   └── app/
-│       ├── main.py          # FastAPI app, CORS, lifespan
+│       ├── main.py          # FastAPI app, CORS, lifespan, OpenAPI routes
+│       ├── openapi.py       # OpenAPI schema builder + JSON/YAML export helpers
 │       ├── database.py      # SQLAlchemy async engine
 │       ├── models.py        # User, Location, Item ORM models
 │       ├── schemas.py       # Pydantic request/response models
@@ -167,6 +170,35 @@ efandpi/
 | `POST` | `/locations/{id}/share` | Create share link (idempotent); returns `{token}` |
 | `POST` | `/locations/{id}/share/regenerate` | Replace token (invalidates old link) |
 | `GET` | `/public/share/{token}` | Public read-only view — no auth required |
+
+### OpenAPI schema
+
+The API schema is generated dynamically from the running FastAPI app and stays in sync with route changes.
+
+| URL | Format |
+|-----|--------|
+| `/openapi.json` | JSON (default FastAPI endpoint) |
+| `/openapi.yaml` | YAML |
+| `/docs` | Swagger UI |
+| `/redoc` | ReDoc |
+
+Examples (local dev):
+
+```bash
+curl http://localhost:5000/openapi.json -o openapi.json
+curl http://localhost:5000/openapi.yaml -o openapi.yaml
+```
+
+To export both files without starting the server:
+
+```bash
+cd backend
+pip install -r requirements.txt
+python scripts/export_openapi.py              # writes backend/openapi.json + openapi.yaml
+python scripts/export_openapi.py -o ./docs    # custom output directory
+```
+
+Use the exported schema with OpenAPI-aware tools, code generators, or AI agents that accept an API spec.
 
 ---
 
