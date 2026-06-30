@@ -313,6 +313,53 @@ describe("LocationPage — item quantity and delete", () => {
   });
 });
 
+describe("LocationPage — share", () => {
+  it("opens the share modal when the Share button is clicked", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("This location is empty");
+
+    await user.click(screen.getByRole("button", { name: /share location/i }));
+    expect(await screen.findByText("Share Location", { selector: "h3" })).toBeInTheDocument();
+  });
+
+  it("displays the share URL in the modal", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("This location is empty");
+
+    await user.click(screen.getByRole("button", { name: /share location/i }));
+    const url = await screen.findByText(/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/);
+    expect(url).toBeInTheDocument();
+  });
+
+  it("updates the URL when Regenerate is clicked", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("This location is empty");
+
+    await user.click(screen.getByRole("button", { name: /share location/i }));
+    await screen.findByText(/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/);
+
+    await user.click(screen.getByRole("button", { name: /regenerate link/i }));
+    expect(await screen.findByText(/11111111-2222-3333-4444-555555555555/)).toBeInTheDocument();
+  });
+
+  it("closes the share modal when Close is clicked", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("This location is empty");
+
+    await user.click(screen.getByRole("button", { name: /share location/i }));
+    await screen.findByText("Share Location", { selector: "h3" });
+
+    await user.click(screen.getByRole("button", { name: /close/i }));
+    await waitFor(() =>
+      expect(screen.queryByText("Share Location", { selector: "h3" })).not.toBeInTheDocument()
+    );
+  });
+});
+
 describe("LocationPage — manual import", () => {
   it("opens the manual import modal and adds a selected product", async () => {
     const user = userEvent.setup();

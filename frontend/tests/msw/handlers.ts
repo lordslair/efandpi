@@ -4,6 +4,7 @@ import { TEST_API_ORIGIN } from "../constants";
 const api = (path: string) => `${TEST_API_ORIGIN}${path}`;
 
 export const MOCK_TOKEN = "test-access-token";
+export const MOCK_SHARE_TOKEN = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
 export const MOCK_LOCATION = {
   id: 1,
@@ -46,6 +47,35 @@ export const handlers = [
   }),
 
   http.delete(api("/locations/:id"), () => new HttpResponse(null, { status: 204 })),
+
+  // Share links
+  http.post(api("/locations/:id/share"), () =>
+    HttpResponse.json({ token: MOCK_SHARE_TOKEN })
+  ),
+
+  http.post(api("/locations/:id/share/regenerate"), () =>
+    HttpResponse.json({ token: "11111111-2222-3333-4444-555555555555" })
+  ),
+
+  http.get(
+    `${TEST_API_ORIGIN}/public/share/:token`,
+    ({ params }) => {
+      if (params.token === MOCK_SHARE_TOKEN) {
+        return HttpResponse.json({
+          name: "Fridge",
+          items: [
+            {
+              barcode: "3017620422003",
+              name: "Nutella",
+              quantity: 2,
+              thumbnail_url: null,
+            },
+          ],
+        });
+      }
+      return HttpResponse.json({ detail: "Share link not found" }, { status: 404 });
+    }
+  ),
 
   // Items — lookup must come before the generic items route
   http.get(api("/locations/:id/items/lookup"), ({ request }) => {

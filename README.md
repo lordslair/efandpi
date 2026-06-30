@@ -12,6 +12,7 @@ A Progressive Web App (PWA) for tracking what you have in your fridge, pantry, a
 - **Manual import** — search Open Food Facts by product name and pick from matching results
 - **Open Food Facts** — automatic product name and thumbnail lookup (barcode scan or text search)
 - **Inventory management** — add items, adjust quantities with +/− buttons, delete items
+- **Share links** — generate a stable, read-only public URL for any location; share it without requiring the recipient to have an account; regenerate the link to invalidate the old one
 - **Export** — generate a PNG image of any location's inventory list
 - **PWA** — installable on Android/iOS, works in standalone mode
 
@@ -80,6 +81,17 @@ Each location offers two ways to add products:
 
 Both flows use the same inventory rules: adding an item with an existing barcode in that location increments its quantity instead of creating a duplicate row.
 
+## Sharing a Location
+
+The header of each location page has a **Share** button next to Export. Clicking it opens a modal that:
+
+1. Generates (or retrieves) a stable UUID-based public link for that location.
+2. Shows the full URL, which anyone can open in any browser — no account needed.
+3. Provides a **Copy link** button to copy the URL to clipboard.
+4. Provides a **Regenerate link** button to invalidate the previous URL and create a new one.
+
+The public view at `/share/:token` is read-only — visitors see the location name and item list (thumbnail, name, barcode, quantity) but cannot edit quantities or delete items.
+
 ---
 
 ## Project Structure
@@ -96,7 +108,7 @@ efandpi/
 │   ├── requirements.txt
 │   ├── requirements-dev.txt # pytest + pytest-asyncio
 │   ├── pytest.ini
-│   ├── tests/               # pytest suite
+│   ├── tests/               # pytest suite (auth, items, locations, shares)
 │   └── app/
 │       ├── main.py          # FastAPI app, CORS, lifespan
 │       ├── database.py      # SQLAlchemy async engine
@@ -105,10 +117,11 @@ efandpi/
 │       ├── auth.py          # JWT + bcrypt helpers, get_current_user dep
 │       └── routers/
 │           ├── auth.py      # POST /auth/register, POST /auth/token
-│           ├── locations.py # GET/POST/DELETE /locations
-│           └── items.py     # GET/POST/PATCH/DELETE /locations/{id}/items
-│                            # GET /locations/{id}/items/lookup?barcode=
-│                            # GET /locations/{id}/items/search?q=
+│           ├── locations.py # GET/POST/DELETE /locations + share endpoints
+│           ├── items.py     # GET/POST/PATCH/DELETE /locations/{id}/items
+│           │                # GET /locations/{id}/items/lookup?barcode=
+│           │                # GET /locations/{id}/items/search?q=
+│           └── public.py    # GET /public/share/{token} (no auth)
 └── frontend/
     ├── Dockerfile           # Node build + nginx serve (port 3000)
     ├── nginx.conf           # SPA fallback + /api proxy + gzip
@@ -122,13 +135,16 @@ efandpi/
         ├── router.ts        # React Router v7 future flags
         ├── pages/
         │   ├── LoginPage.tsx
-        │   ├── HomePage.tsx     # Location selector grid
-        │   └── LocationPage.tsx # Item list + scanner + manual import + export
+        │   ├── HomePage.tsx          # Location selector grid
+        │   ├── LocationPage.tsx      # Item list + scanner + manual import + share + export
+        │   └── SharedLocationPage.tsx # Public read-only view at /share/:token
         └── components/
-            ├── BarcodeScanner.tsx   # react-zxing, rear camera, scan overlay
+            ├── BarcodeScanner.tsx    # react-zxing, rear camera, scan overlay
             ├── ManualImportModal.tsx # Open Food Facts text search + product picker
-            ├── ItemCard.tsx         # Thumbnail, name, qty controls, delete
-            └── ExportButton.tsx     # html-to-image PNG download
+            ├── ShareButton.tsx       # Opens share modal
+            ├── ShareModal.tsx        # Copy/regenerate share link modal
+            ├── ItemCard.tsx          # Thumbnail, name, qty controls, delete (+ readOnly mode)
+            └── ExportButton.tsx      # html-to-image PNG download
 ```
 
 ---
@@ -148,6 +164,9 @@ efandpi/
 | `POST` | `/locations/{id}/items` | Add item (increments qty if barcode exists) |
 | `PATCH` | `/locations/{id}/items/{itemId}` | Update quantity `{quantity}` |
 | `DELETE` | `/locations/{id}/items/{itemId}` | Remove item |
+| `POST` | `/locations/{id}/share` | Create share link (idempotent); returns `{token}` |
+| `POST` | `/locations/{id}/share/regenerate` | Replace token (invalidates old link) |
+| `GET` | `/public/share/{token}` | Public read-only view — no auth required |
 
 ---
 

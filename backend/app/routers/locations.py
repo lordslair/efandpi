@@ -1,4 +1,5 @@
 from typing import Annotated
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -6,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import Location, User
-from ..schemas import LocationCreate, LocationOut
+from ..models import Location, LocationShare, User
+from ..schemas import LocationCreate, LocationOut, ShareLinkOut
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
@@ -50,3 +51,58 @@ async def delete_location(
         raise HTTPException(status_code=404, detail="Location not found")
     await db.delete(location)
     await db.commit()
+
+
+@router.post("/{location_id}/share", response_model=ShareLinkOut)
+async def create_share_link(
+    location_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    result = await db.execute(
+        select(Location).where(Location.id == location_id, Location.user_id == current_user.id)
+    )
+    location = result.scalar_one_or_none()
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+
+    share_result = await db.execute(
+        select(LocationShare).where(LocationShare.location_id == location_id)
+    )
+    share = share_result.scalar_one_or_none()
+    if share:
+        return ShareLinkOut(token=share.token)
+
+    share = LocationShare(location_id=location_id)
+    db.add(share)
+    await db.commit()
+    await db.refresh(share)
+    return ShareLinkOut(token=share.token)
+
+
+@router.post("/{location_id}/share/regenerate", response_model=ShareLinkOut)
+async def regenerate_share_link(
+    location_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    result = await db.execute(
+        select(Location).where(Location.id == location_id, Location.user_id == current_user.id)
+    )
+    location = result.scalar_one_or_none()
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+
+    share_result = await db.execute(
+        select(LocationShare).where(LocationShare.location_id == location_id)
+    )
+    share = share_result.scalar_one_or_none()
+    if share is None:
+        share = LocationShare(location_id=location_id)
+        db.add(share)
+    else:
+        share.token = str(uuid.uuid4())
+
+    await db.commit()
+    await db.refresh(share)
+    return ShareLinkOut(token=share.token)

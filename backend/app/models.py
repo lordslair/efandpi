@@ -2,6 +2,11 @@ from datetime import datetime, timezone
 from sqlalchemy import String, Integer, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
+import uuid
+
+
+def _new_token() -> str:
+    return str(uuid.uuid4())
 
 
 class User(Base):
@@ -29,6 +34,9 @@ class Location(Base):
 
     user: Mapped["User"] = relationship(back_populates="locations")
     items: Mapped[list["Item"]] = relationship(back_populates="location", cascade="all, delete-orphan")
+    share: Mapped["LocationShare | None"] = relationship(
+        back_populates="location", cascade="all, delete-orphan", uselist=False
+    )
 
 
 class Item(Base):
@@ -46,3 +54,20 @@ class Item(Base):
     )
 
     location: Mapped["Location"] = relationship(back_populates="items")
+
+
+class LocationShare(Base):
+    __tablename__ = "location_shares"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    location_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("locations.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    token: Mapped[str] = mapped_column(
+        String, unique=True, index=True, nullable=False, default=_new_token
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    location: Mapped["Location"] = relationship(back_populates="share")

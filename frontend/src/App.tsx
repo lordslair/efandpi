@@ -5,6 +5,7 @@ import { routerFuture } from "./router";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import LocationPage from "./pages/LocationPage";
+import SharedLocationPage from "./pages/SharedLocationPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { token } = useAuth();
@@ -33,6 +34,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/share/:token" element={<SharedLocationPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

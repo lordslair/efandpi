@@ -100,6 +100,39 @@ export async function searchProducts(
   );
 }
 
+// Share links
+export interface ShareLink {
+  token: string;
+}
+
+export interface SharedItem {
+  name: string;
+  barcode: string;
+  quantity: number;
+  thumbnail_url: string | null;
+}
+
+export interface SharedLocation {
+  name: string;
+  items: SharedItem[];
+}
+
+export async function createShareLink(locationId: number): Promise<ShareLink> {
+  return request(`/locations/${locationId}/share`, { method: "POST" });
+}
+
+export async function regenerateShareLink(locationId: number): Promise<ShareLink> {
+  return request(`/locations/${locationId}/share/regenerate`, { method: "POST" });
+}
+
+export async function getSharedLocation(token: string): Promise<SharedLocation> {
+  const res = await fetch(`${BASE_URL}/public/share/${encodeURIComponent(token)}`);
+  if (res.status === 204) return { name: "", items: [] };
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? "Not found");
+  return data as SharedLocation;
+}
+
 export async function getItems(locationId: number): Promise<Item[]> {
   return request(`/locations/${locationId}/items`);
 }

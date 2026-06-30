@@ -69,3 +69,20 @@ class ProductSearchResult(BaseModel):
     barcode: str
     name: str
     thumbnail_url: str | None
+
+
+# Share links
+class ShareLinkOut(BaseModel):
+    token: str
+
+
+class SharedItemOut(BaseModel):
+    name: str
+    barcode: str
+    quantity: int
+    thumbnail_url: str | None
+
+
+class SharedLocationOut(BaseModel):
+    name: str
+    items: list[SharedItemOut]

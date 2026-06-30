@@ -36,3 +36,18 @@ describe("App routing — authenticated", () => {
     expect(await screen.findByText("My Locations")).toBeInTheDocument();
   });
 });
+
+describe("App routing — public share", () => {
+  it("renders SharedLocationPage at /share/:token without auth", async () => {
+    window.history.pushState({}, "", "/share/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    render(<App />);
+    expect(await screen.findByText("Fridge")).toBeInTheDocument();
+    expect(screen.getByText("Nutella")).toBeInTheDocument();
+  });
+
+  it("shows not-found state for an unknown token", async () => {
+    window.history.pushState({}, "", "/share/unknown-token-xyz");
+    render(<App />);
+    expect(await screen.findByText("Link not found")).toBeInTheDocument();
+  });
+});

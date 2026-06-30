@@ -3,6 +3,8 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import * as api from "../api/client";
 import BarcodeScanner from "../components/BarcodeScanner";
 import ManualImportModal from "../components/ManualImportModal";
+import ShareButton from "../components/ShareButton";
+import ShareModal from "../components/ShareModal";
 import ItemCard from "../components/ItemCard";
 import ExportButton from "../components/ExportButton";
 
@@ -24,6 +26,7 @@ export default function LocationPage() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [manualImport, setManualImport] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [scanConfirm, setScanConfirm] = useState<ScanConfirm | null>(null);
   const [manualName, setManualName] = useState("");
@@ -142,6 +145,7 @@ export default function LocationPage() {
           ←
         </button>
         <h1 className="text-xl font-bold flex-1 truncate">{locationName}</h1>
+        <ShareButton onClick={() => setSharing(true)} />
         <ExportButton targetRef={listRef} locationName={locationName} />
       </header>
 
@@ -217,6 +221,13 @@ export default function LocationPage() {
           locationId={locationId}
           onClose={() => setManualImport(false)}
           onAdded={handleItemAdded}
+        />
+      )}
+
+      {sharing && (
+        <ShareModal
+          locationId={locationId}
+          onClose={() => setSharing(false)}
         />
       )}
 
