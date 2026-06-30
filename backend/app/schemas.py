@@ -38,6 +38,7 @@ class LocationOut(BaseModel):
 class ItemCreate(BaseModel):
     barcode: str
     name: str
+    brand: str | None = None
     quantity: int = 1
     thumbnail_url: str | None = None
 
@@ -50,6 +51,7 @@ class ItemOut(BaseModel):
     id: int
     barcode: str
     name: str
+    brand: str | None
     quantity: int
     thumbnail_url: str | None
     added_at: datetime
@@ -61,6 +63,7 @@ class ItemOut(BaseModel):
 class ProductLookup(BaseModel):
     barcode: str
     name: str | None
+    brand: str | None
     thumbnail_url: str | None
     found: bool
 
@@ -68,6 +71,7 @@ class ProductLookup(BaseModel):
 class ProductSearchResult(BaseModel):
     barcode: str
     name: str
+    brand: str | None
     thumbnail_url: str | None
 
 
@@ -78,6 +82,7 @@ class ShareLinkOut(BaseModel):
 
 class SharedItemOut(BaseModel):
     name: str
+    brand: str | None
     barcode: str
     quantity: int
     thumbnail_url: str | None

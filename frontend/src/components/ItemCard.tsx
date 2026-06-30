@@ -1,7 +1,13 @@
 import { Item } from "../api/client";
 
 interface ItemCardProps {
-  item: { name: string; barcode: string; quantity: number; thumbnail_url?: string | null };
+  item: {
+    name: string;
+    brand?: string | null;
+    barcode: string;
+    quantity: number;
+    thumbnail_url?: string | null;
+  };
   readOnly?: boolean;
   onQuantityChange?: (newQty: number) => void;
   onDelete?: () => void;
@@ -24,9 +30,12 @@ export default function ItemCard({ item, readOnly = false, onQuantityChange, onD
         />
       </div>
 
-      {/* Name + barcode */}
+      {/* Name + brand + barcode */}
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-gray-900 text-sm leading-snug truncate">{item.name}</p>
+        {item.brand && (
+          <p className="text-xs text-gray-500 mt-0.5 truncate">{item.brand}</p>
+        )}
         <p className="text-xs text-gray-400 mt-0.5 font-mono">{item.barcode}</p>
       </div>
 

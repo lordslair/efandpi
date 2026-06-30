@@ -3,13 +3,20 @@ from unittest.mock import MagicMock, patch
 import pytest
 from httpx import AsyncClient
 
-from app.routers.items import _off_field
+from app.routers.items import _off_brand, _off_field
 
 
 def test_off_field_reads_top_level_and_nested_values():
     assert _off_field({"product_name": "Nutella"}, "product_name") == "Nutella"
     assert _off_field({"product": {"product_name": "Jam"}}, "product_name") == "Jam"
     assert _off_field({}, "product_name") is None
+
+
+def test_off_brand_reads_brands_and_brand_fields():
+    assert _off_brand({"brands": "Ferrero"}) == "Ferrero"
+    assert _off_brand({"product": {"brands": "Nestlé"}}) == "Nestlé"
+    assert _off_brand({"brand": "Barilla"}) == "Barilla"
+    assert _off_brand({}) is None
 
 
 @pytest.mark.asyncio
@@ -31,6 +38,7 @@ async def test_lookup_found(
 ):
     mock_off_api.product.get.return_value = {
         "product_name": "Nutella",
+        "brands": "Ferrero",
         "image_thumb_url": "https://example.com/nutella.jpg",
     }
 
@@ -43,6 +51,7 @@ async def test_lookup_found(
     data = response.json()
     assert data["found"] is True
     assert data["name"] == "Nutella"
+    assert data["brand"] == "Ferrero"
     assert data["barcode"] == "3017620422003"
 
 
@@ -107,6 +116,7 @@ async def test_search_returns_products(
             {
                 "code": "3017620422003",
                 "product_name": "Nutella",
+                "brands": "Ferrero",
                 "image_thumb_url": "https://example.com/nutella.jpg",
             },
             {"code": "123", "product_name": ""},
@@ -123,6 +133,7 @@ async def test_search_returns_products(
     assert len(data) == 1
     assert data[0]["barcode"] == "3017620422003"
     assert data[0]["name"] == "Nutella"
+    assert data[0]["brand"] == "Ferrero"
 
 
 @pytest.mark.asyncio
@@ -135,6 +146,7 @@ async def test_add_list_update_and_delete_item(
     payload = {
         "barcode": "1234567890123",
         "name": "Tomato sauce",
+        "brand": "Mutti",
         "quantity": 2,
         "thumbnail_url": "https://example.com/sauce.jpg",
     }
@@ -147,6 +159,7 @@ async def test_add_list_update_and_delete_item(
     assert create.status_code == 201
     item = create.json()
     assert item["name"] == "Tomato sauce"
+    assert item["brand"] == "Mutti"
     assert item["quantity"] == 2
 
     listing = await client.get(f"/locations/{location_id}/items", headers=auth_headers)

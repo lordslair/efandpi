@@ -46,6 +46,7 @@ const MOCK_ITEMS = [
     id: 1,
     barcode: "3017620422003",
     name: "Nutella",
+    brand: "Ferrero",
     quantity: 2,
     thumbnail_url: null,
     added_at: "2026-01-01T00:00:00Z",

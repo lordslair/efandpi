@@ -22,6 +22,14 @@ def _off_field(data: dict, field: str) -> str | None:
     return (data.get("product") or {}).get(field) or None
 
 
+def _off_brand(data: dict) -> str | None:
+    for field in ("brands", "brand"):
+        value = _off_field(data, field)
+        if value:
+            return value.strip()
+    return None
+
+
 async def _get_location_for_user(
     location_id: int,
     current_user: User,
@@ -48,23 +56,25 @@ async def lookup_barcode(
     try:
         product = _off_api.product.get(
             barcode,
-            fields=["code", "product_name", "image_thumb_url"],
+            fields=["code", "product_name", "brands", "brand", "image_thumb_url"],
         )
     except Exception:
         product = None
 
     if product and product.get("status") != 0:
         name = _off_field(product, "product_name")
+        brand = _off_brand(product)
         thumbnail_url = _off_field(product, "image_thumb_url")
-        if name or thumbnail_url:
+        if name or brand or thumbnail_url:
             return ProductLookup(
                 barcode=barcode,
                 name=name,
+                brand=brand,
                 thumbnail_url=thumbnail_url,
                 found=True,
             )
 
-    return ProductLookup(barcode=barcode, name=None, thumbnail_url=None, found=False)
+    return ProductLookup(barcode=barcode, name=None, brand=None, thumbnail_url=None, found=False)
 
 
 @router.get("/search", response_model=list[ProductSearchResult])
@@ -96,6 +106,7 @@ async def search_products(
             ProductSearchResult(
                 barcode=str(barcode),
                 name=name,
+                brand=_off_brand(product),
                 thumbnail_url=_off_field(product, "image_thumb_url"),
             )
         )
@@ -138,6 +149,7 @@ async def add_item(
         barcode=payload.barcode,
         location_id=location_id,
         name=payload.name,
+        brand=payload.brand,
         quantity=payload.quantity,
         thumbnail_url=payload.thumbnail_url,
     )

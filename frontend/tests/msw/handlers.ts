@@ -16,6 +16,7 @@ export const MOCK_ITEM = {
   id: 1,
   barcode: "3017620422003",
   name: "Nutella",
+  brand: "Ferrero",
   quantity: 2,
   thumbnail_url: null,
   added_at: "2026-01-01T00:00:00Z",
@@ -67,6 +68,7 @@ export const handlers = [
             {
               barcode: "3017620422003",
               name: "Nutella",
+              brand: "Ferrero",
               quantity: 2,
               thumbnail_url: null,
             },
@@ -80,7 +82,7 @@ export const handlers = [
   // Items — lookup must come before the generic items route
   http.get(api("/locations/:id/items/lookup"), ({ request }) => {
     const barcode = new URL(request.url).searchParams.get("barcode") ?? "";
-    return HttpResponse.json({ barcode, name: null, thumbnail_url: null, found: false });
+    return HttpResponse.json({ barcode, name: null, brand: null, thumbnail_url: null, found: false });
   }),
 
   http.get(api("/locations/:id/items/search"), ({ request }) => {
@@ -90,6 +92,7 @@ export const handlers = [
       {
         barcode: "3017620422003",
         name: "Nutella",
+        brand: "Ferrero",
         thumbnail_url: null,
       },
     ]);
@@ -101,6 +104,7 @@ export const handlers = [
     const body = (await request.json()) as {
       barcode: string;
       name: string;
+      brand?: string | null;
       quantity: number;
       thumbnail_url: string | null;
     };

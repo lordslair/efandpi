@@ -69,6 +69,7 @@ export interface Item {
   id: number;
   barcode: string;
   name: string;
+  brand: string | null;
   quantity: number;
   thumbnail_url: string | null;
   added_at: string;
@@ -77,6 +78,7 @@ export interface Item {
 export interface ProductLookup {
   barcode: string;
   name: string | null;
+  brand: string | null;
   thumbnail_url: string | null;
   found: boolean;
 }
@@ -84,6 +86,7 @@ export interface ProductLookup {
 export interface ProductSearchResult {
   barcode: string;
   name: string;
+  brand: string | null;
   thumbnail_url: string | null;
 }
 
@@ -107,6 +110,7 @@ export interface ShareLink {
 
 export interface SharedItem {
   name: string;
+  brand: string | null;
   barcode: string;
   quantity: number;
   thumbnail_url: string | null;
@@ -139,7 +143,13 @@ export async function getItems(locationId: number): Promise<Item[]> {
 
 export async function addItem(
   locationId: number,
-  item: { barcode: string; name: string; quantity: number; thumbnail_url?: string | null }
+  item: {
+    barcode: string;
+    name: string;
+    brand?: string | null;
+    quantity: number;
+    thumbnail_url?: string | null;
+  }
 ): Promise<Item> {
   return request(`/locations/${locationId}/items`, {
     method: "POST",

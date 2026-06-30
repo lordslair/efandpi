@@ -47,6 +47,7 @@ class Item(Base):
     barcode: Mapped[str] = mapped_column(String, nullable=False, index=True)
     location_id: Mapped[int] = mapped_column(Integer, ForeignKey("locations.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    brand: Mapped[str | None] = mapped_column(String, nullable=True)
     quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
     added_at: Mapped[datetime] = mapped_column(

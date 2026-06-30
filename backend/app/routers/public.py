@@ -34,6 +34,7 @@ async def get_shared_location(
         items=[
             SharedItemOut(
                 name=item.name,
+                brand=item.brand,
                 barcode=item.barcode,
                 quantity=item.quantity,
                 thumbnail_url=item.thumbnail_url,

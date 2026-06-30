@@ -9,6 +9,7 @@ const BASE_ITEM: Item = {
   id: 1,
   barcode: "3017620422003",
   name: "Nutella",
+  brand: "Ferrero",
   quantity: 3,
   thumbnail_url: null,
   added_at: "2026-01-01T00:00:00Z",
@@ -33,6 +34,16 @@ describe("ItemCard — rendering", () => {
   it("displays the barcode", () => {
     renderCard();
     expect(screen.getByText("3017620422003")).toBeInTheDocument();
+  });
+
+  it("displays the brand under the product name when present", () => {
+    renderCard({ brand: "Ferrero" });
+    expect(screen.getByText("Ferrero")).toBeInTheDocument();
+  });
+
+  it("does not render a brand line when brand is null", () => {
+    renderCard({ brand: null });
+    expect(screen.queryByText("Ferrero")).not.toBeInTheDocument();
   });
 
   it("displays the current quantity", () => {

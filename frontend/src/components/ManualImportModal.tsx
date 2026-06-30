@@ -52,6 +52,7 @@ export default function ManualImportModal({
       const item = await api.addItem(locationId, {
         barcode: selected.barcode,
         name: selected.name,
+        brand: selected.brand,
         quantity: 1,
         thumbnail_url: selected.thumbnail_url,
       });

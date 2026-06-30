@@ -11,6 +11,7 @@ import ExportButton from "../components/ExportButton";
 interface ScanConfirm {
   barcode: string;
   name: string;
+  brand: string | null;
   thumbnail_url: string | null;
   found: boolean;
 }
@@ -67,6 +68,7 @@ export default function LocationPage() {
       setScanConfirm({
         barcode,
         name: result.name ?? "",
+        brand: result.brand,
         thumbnail_url: result.thumbnail_url,
         found: result.found,
       });
@@ -86,6 +88,7 @@ export default function LocationPage() {
       const item = await api.addItem(locationId, {
         barcode: scanConfirm.barcode,
         name,
+        brand: scanConfirm.brand,
         quantity: confirmQty,
         thumbnail_url: scanConfirm.thumbnail_url,
       });
