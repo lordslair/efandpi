@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:1.30-alpine
+FROM nginx:1.31-alpine
 
 # Install curl for healthcheck
 RUN apk add --no-cache curl
