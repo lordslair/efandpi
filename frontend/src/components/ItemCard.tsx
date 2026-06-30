@@ -9,15 +9,28 @@ interface ItemCardProps {
     thumbnail_url?: string | null;
   };
   readOnly?: boolean;
+  outOfStock?: boolean;
   onQuantityChange?: (newQty: number) => void;
   onDelete?: () => void;
 }
 
 const FALLBACK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23f3f4f6'/%3E%3Ctext x='40' y='48' font-size='32' text-anchor='middle'%3E🥫%3C/text%3E%3C/svg%3E";
 
-export default function ItemCard({ item, readOnly = false, onQuantityChange, onDelete }: ItemCardProps) {
+export default function ItemCard({
+  item,
+  readOnly = false,
+  outOfStock = false,
+  onQuantityChange,
+  onDelete,
+}: ItemCardProps) {
   return (
-    <div className="flex items-center gap-3 bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
+    <div
+      className={`flex items-center gap-3 rounded-2xl border p-3 shadow-sm ${
+        outOfStock
+          ? "bg-gray-100 border-gray-200"
+          : "bg-white border-gray-100"
+      }`}
+    >
       {/* Thumbnail */}
       <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
         <img
@@ -49,7 +62,7 @@ export default function ItemCard({ item, readOnly = false, onQuantityChange, onD
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={() => onQuantityChange?.(item.quantity - 1)}
-              disabled={item.quantity <= 1}
+              disabled={item.quantity <= 0}
               className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 font-bold text-lg
                          flex items-center justify-center active:scale-90 transition-transform
                          disabled:opacity-30 disabled:cursor-not-allowed"

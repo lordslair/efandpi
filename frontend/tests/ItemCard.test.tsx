@@ -59,8 +59,13 @@ describe("ItemCard — rendering", () => {
 });
 
 describe("ItemCard — quantity controls", () => {
-  it("decrease button is disabled when quantity is 1", () => {
+  it("decrease button is enabled when quantity is 1", () => {
     renderCard({ quantity: 1 });
+    expect(screen.getByRole("button", { name: "Decrease quantity" })).toBeEnabled();
+  });
+
+  it("decrease button is disabled when quantity is 0", () => {
+    renderCard({ quantity: 0 });
     expect(screen.getByRole("button", { name: "Decrease quantity" })).toBeDisabled();
   });
 
@@ -71,10 +76,10 @@ describe("ItemCard — quantity controls", () => {
 
   it("calls onQuantityChange(quantity - 1) when − is clicked", async () => {
     const user = userEvent.setup();
-    const { onQuantityChange } = renderCard({ quantity: 3 });
+    const { onQuantityChange } = renderCard({ quantity: 1 });
 
     await user.click(screen.getByRole("button", { name: "Decrease quantity" }));
-    expect(onQuantityChange).toHaveBeenCalledWith(2);
+    expect(onQuantityChange).toHaveBeenCalledWith(0);
   });
 
   it("calls onQuantityChange(quantity + 1) when + is clicked", async () => {
@@ -83,6 +88,20 @@ describe("ItemCard — quantity controls", () => {
 
     await user.click(screen.getByRole("button", { name: "Increase quantity" }));
     expect(onQuantityChange).toHaveBeenCalledWith(4);
+  });
+});
+
+describe("ItemCard — out of stock styling", () => {
+  it("uses a grey background when outOfStock is true", () => {
+    const { container } = render(
+      <ItemCard
+        item={BASE_ITEM}
+        outOfStock
+        onQuantityChange={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+    expect(container.firstChild).toHaveClass("bg-gray-100");
   });
 });
 

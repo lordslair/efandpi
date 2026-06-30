@@ -176,8 +176,8 @@ async def update_item_quantity(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    if payload.quantity < 1:
-        raise HTTPException(status_code=400, detail="Quantity must be at least 1")
+    if payload.quantity < 0:
+        raise HTTPException(status_code=400, detail="Quantity must be at least 0")
 
     item.quantity = payload.quantity
     await db.commit()

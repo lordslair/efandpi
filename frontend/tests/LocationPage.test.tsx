@@ -300,6 +300,46 @@ describe("LocationPage — item quantity and delete", () => {
     await waitFor(() => expect(patchedQty).toBe(3));
   });
 
+  it("moves an item to Out of Stock when quantity reaches 0", async () => {
+    server.use(
+      http.patch(api("/locations/:id/items/:itemId"), async ({ request }) => {
+        const body = (await request.json()) as { quantity: number };
+        return HttpResponse.json({ ...MOCK_ITEMS[0], quantity: body.quantity });
+      })
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Nutella");
+
+    await user.click(screen.getByRole("button", { name: "Decrease quantity" }));
+    await user.click(screen.getByRole("button", { name: "Decrease quantity" }));
+
+    expect(await screen.findByText("Out of Stock")).toBeInTheDocument();
+    expect(screen.getByText("0")).toBeInTheDocument();
+  });
+
+  it("moves an item back in stock when quantity goes from 0 to 1", async () => {
+    server.use(
+      http.get(api("/locations/:id/items"), () =>
+        HttpResponse.json([{ ...MOCK_ITEMS[0], quantity: 0 }])
+      ),
+      http.patch(api("/locations/:id/items/:itemId"), async ({ request }) => {
+        const body = (await request.json()) as { quantity: number };
+        return HttpResponse.json({ ...MOCK_ITEMS[0], quantity: body.quantity });
+      })
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Out of Stock");
+
+    await user.click(screen.getByRole("button", { name: "Increase quantity" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Out of Stock")).not.toBeInTheDocument()
+    );
+    expect(screen.getByText("1")).toBeInTheDocument();
+  });
+
   it("removes the item from the list when its delete button is clicked", async () => {
     const user = userEvent.setup();
     renderLocationPage(1, { name: "Fridge" });

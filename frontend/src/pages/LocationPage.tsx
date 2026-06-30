@@ -133,6 +133,9 @@ export default function LocationPage() {
     });
   }
 
+  const inStockItems = items.filter((item) => item.quantity > 0);
+  const outOfStockItems = items.filter((item) => item.quantity === 0);
+
   const FALLBACK =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23f3f4f6'/%3E%3Ctext x='40' y='48' font-size='32' text-anchor='middle'%3E🥫%3C/text%3E%3C/svg%3E";
 
@@ -202,7 +205,8 @@ export default function LocationPage() {
               <h2 className="font-bold text-gray-800">{locationName} inventory</h2>
               <p className="text-xs text-gray-400">{items.length} item{items.length !== 1 ? "s" : ""}</p>
             </div>
-            {items.map((item) => (
+
+            {inStockItems.map((item) => (
               <ItemCard
                 key={item.id}
                 item={item}
@@ -210,6 +214,25 @@ export default function LocationPage() {
                 onDelete={() => handleDelete(item.id)}
               />
             ))}
+
+            {outOfStockItems.length > 0 && (
+              <div className="pt-4 mt-2">
+                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide px-1 mb-2">
+                  Out of Stock
+                </h3>
+                <div className="space-y-2">
+                  {outOfStockItems.map((item) => (
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      outOfStock
+                      onQuantityChange={(qty) => handleQuantityChange(item, qty)}
+                      onDelete={() => handleDelete(item.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

@@ -210,7 +210,7 @@ async def test_add_duplicate_barcode_increments_quantity(
 
 
 @pytest.mark.asyncio
-async def test_update_quantity_must_be_at_least_one(
+async def test_update_quantity_can_be_zero(
     client: AsyncClient,
     auth_headers: dict[str, str],
     location: dict,
@@ -228,5 +228,28 @@ async def test_update_quantity_must_be_at_least_one(
         json={"quantity": 0},
         headers=auth_headers,
     )
+    assert response.status_code == 200
+    assert response.json()["quantity"] == 0
+
+
+@pytest.mark.asyncio
+async def test_update_quantity_cannot_be_negative(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    location_id = location["id"]
+    create = await client.post(
+        f"/locations/{location_id}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "quantity": 1},
+        headers=auth_headers,
+    )
+    item_id = create.json()["id"]
+
+    response = await client.patch(
+        f"/locations/{location_id}/items/{item_id}",
+        json={"quantity": -1},
+        headers=auth_headers,
+    )
     assert response.status_code == 400
-    assert response.json()["detail"] == "Quantity must be at least 1"
+    assert response.json()["detail"] == "Quantity must be at least 0"

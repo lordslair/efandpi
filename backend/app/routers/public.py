@@ -28,6 +28,7 @@ async def get_shared_location(
         select(Item).where(Item.location_id == location.id).order_by(Item.added_at)
     )
     items = items_result.scalars().all()
+    in_stock_items = [item for item in items if item.quantity > 0]
 
     return SharedLocationOut(
         name=location.name,
@@ -39,6 +40,6 @@ async def get_shared_location(
                 quantity=item.quantity,
                 thumbnail_url=item.thumbnail_url,
             )
-            for item in items
+            for item in in_stock_items
         ],
     )
