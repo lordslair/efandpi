@@ -17,8 +17,8 @@
     "html-to-image": "^1.11.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2",
-    "react-zxing": "^2.1.0"
+    "react-router-dom": "^7.18.1",
+    "react-zxing": "^3.0.0"
   },
   "devDependencies": {
     "tailwindcss": "^4.3.2",

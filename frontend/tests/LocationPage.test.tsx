@@ -10,7 +10,6 @@ import { server } from "./msw/server";
 import { TEST_API_ORIGIN } from "./constants";
 import { AuthProvider } from "../src/hooks/useAuth";
 import LocationPage from "../src/pages/LocationPage";
-import { routerFuture } from "../src/router";
 
 const api = (p: string) => `${TEST_API_ORIGIN}${p}`;
 
@@ -64,7 +63,6 @@ function renderLocationPage(
 ) {
   return render(
     <MemoryRouter
-      future={routerFuture}
       initialEntries={[
         { pathname: `/location/${locationId}`, state: routeState },
       ]}

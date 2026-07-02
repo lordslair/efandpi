@@ -13,7 +13,7 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   const { ref } = useZxing({
     constraints: { video: { facingMode: "environment" }, audio: false },
     onDecodeResult(result) {
-      const value = result.getText();
+      const value = result.rawValue;
       if (!value || cooldownRef.current) return;
       if (value === lastScan.current) return;
 

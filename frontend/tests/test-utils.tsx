@@ -1,7 +1,6 @@
 import { render, type RenderOptions } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "../src/hooks/useAuth";
-import { routerFuture } from "../src/router";
 
 export function renderWithProviders(
   ui: React.ReactElement,
@@ -12,7 +11,7 @@ export function renderWithProviders(
 ) {
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
-      <MemoryRouter future={routerFuture} initialEntries={[route]}>
+      <MemoryRouter initialEntries={[route]}>
         <AuthProvider>{children}</AuthProvider>
       </MemoryRouter>
     );

@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
-import { routerFuture } from "./router";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import LocationPage from "./pages/LocationPage";
@@ -15,7 +14,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter future={routerFuture}>
+      <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route

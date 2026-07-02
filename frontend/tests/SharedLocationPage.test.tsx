@@ -1,12 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { routerFuture } from "../src/router";
 import SharedLocationPage from "../src/pages/SharedLocationPage";
 import { MOCK_SHARE_TOKEN } from "./msw/handlers";
 
 function renderShared(token: string) {
   render(
-    <MemoryRouter initialEntries={[`/share/${token}`]} future={routerFuture}>
+    <MemoryRouter initialEntries={[`/share/${token}`]}>
       <Routes>
         <Route path="/share/:token" element={<SharedLocationPage />} />
       </Routes>
