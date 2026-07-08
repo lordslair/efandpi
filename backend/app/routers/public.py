@@ -39,6 +39,7 @@ async def get_shared_location(
                 barcode=item.barcode,
                 quantity=item.quantity,
                 thumbnail_url=item.thumbnail_url,
+                custom_image_url=item.custom_image_url,
             )
             for item in in_stock_items
         ],

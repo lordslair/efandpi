@@ -26,6 +26,8 @@ def _migrate_schema(connection) -> None:
     columns = {column["name"] for column in inspector.get_columns("items")}
     if "brand" not in columns:
         connection.execute(text("ALTER TABLE items ADD COLUMN brand VARCHAR"))
+    if "custom_image_url" not in columns:
+        connection.execute(text("ALTER TABLE items ADD COLUMN custom_image_url VARCHAR"))
 
 
 async def init_db():

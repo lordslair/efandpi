@@ -12,6 +12,7 @@ const BASE_ITEM: Item = {
   brand: "Ferrero",
   quantity: 3,
   thumbnail_url: null,
+  custom_image_url: null,
   added_at: "2026-01-01T00:00:00Z",
 };
 
@@ -55,6 +56,44 @@ describe("ItemCard — rendering", () => {
     renderCard({ thumbnail_url: "https://example.com/img.jpg" });
     const img = screen.getByRole("img", { name: "Nutella" });
     expect(img).toHaveAttribute("src", "https://example.com/img.jpg");
+  });
+
+  it("prefers custom_image_url over thumbnail_url when both are set", () => {
+    renderCard({
+      thumbnail_url: "https://example.com/off.jpg",
+      custom_image_url: "https://example.com/custom.jpg",
+    });
+    const img = screen.getByRole("img", { name: "Nutella" });
+    expect(img).toHaveAttribute("src", "https://example.com/custom.jpg");
+  });
+});
+
+describe("ItemCard — edit photo", () => {
+  it("does not render an edit-photo button when onEditPhoto is not provided", () => {
+    renderCard();
+    expect(screen.queryByRole("button", { name: "Edit photo" })).not.toBeInTheDocument();
+  });
+
+  it("does not render an edit-photo button in readOnly mode", () => {
+    render(
+      <ItemCard item={BASE_ITEM} readOnly onEditPhoto={vi.fn()} />
+    );
+    expect(screen.queryByRole("button", { name: "Edit photo" })).not.toBeInTheDocument();
+  });
+
+  it("calls onEditPhoto when the edit-photo button is clicked", async () => {
+    const user = userEvent.setup();
+    const onEditPhoto = vi.fn();
+    render(
+      <ItemCard
+        item={BASE_ITEM}
+        onQuantityChange={vi.fn()}
+        onDelete={vi.fn()}
+        onEditPhoto={onEditPhoto}
+      />
+    );
+    await user.click(screen.getByRole("button", { name: "Edit photo" }));
+    expect(onEditPhoto).toHaveBeenCalledOnce();
   });
 });
 

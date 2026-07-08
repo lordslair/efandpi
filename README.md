@@ -11,6 +11,7 @@ A Progressive Web App (PWA) for tracking what you have in your fridge, pantry, a
 - **Barcode scanning** — scan EAN/UPC barcodes with your phone's rear camera
 - **Manual import** — search Open Food Facts by product name and pick from matching results
 - **Open Food Facts** — automatic product name and thumbnail lookup (barcode scan or text search)
+- **Custom product photos** — attach your own photo to an item, stored in an S3-compatible bucket, taking priority over the Open Food Facts thumbnail
 - **Inventory management** — add items, adjust quantities with +/− buttons, delete items
 - **Share links** — generate a stable, read-only public URL for any location; share it without requiring the recipient to have an account; regenerate the link to invalidate the old one
 - **Export** — generate a PNG image of any location's inventory list
@@ -34,6 +35,19 @@ Edit `.env` and set a strong `SECRET_KEY`:
 SECRET_KEY=your-very-long-random-secret-key
 ACCESS_TOKEN_EXPIRE_MINUTES=10080
 DATABASE_URL=sqlite+aiosqlite:////data/efandpi.db
+```
+
+To enable custom product photo uploads, also set (see [Custom Product Photos](#custom-product-photos) below):
+
+```dotenv
+S3_ENDPOINT_URL=https://s3.gra.io.cloud.ovh.net
+S3_BUCKET=efandpi-images
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+S3_REGION=gra
+# Optional: only needed if the provider's public read URL differs from
+# <S3_ENDPOINT_URL>/<S3_BUCKET>/<key>
+S3_PUBLIC_BASE_URL=
 ```
 
 For production HTTPS via Caddy (see below), also set:
@@ -81,6 +95,16 @@ Each location offers two ways to add products:
 
 Both flows use the same inventory rules: adding an item with an existing barcode in that location increments its quantity instead of creating a duplicate row.
 
+## Custom Product Photos
+
+You can attach your own photo to any item — useful for products Open Food Facts doesn't have, or to replace an incorrect auto-matched thumbnail. A custom photo, once set, always takes priority over the Open Food Facts thumbnail.
+
+- Tap the camera icon on an item's thumbnail (or attach a photo right after adding a new item) to upload or replace its photo.
+- Photos are stored in an S3-compatible bucket, organized as `<sha256(your email)>/<item barcode>.<ext>` — one folder per account, one file per barcode.
+- The bucket must be pre-created and configured for **public read access** by the operator (e.g. the OVH Object Storage container "Public" toggle, or an equivalent bucket policy) — the app stores and links to plain public URLs, it does not sign or proxy requests.
+- Requires the `S3_*` environment variables documented above; without them configured, photo upload will fail (existing Open Food Facts thumbnails are unaffected).
+- Accepted formats: JPEG, PNG, WebP, up to 5 MB.
+
 ## Sharing a Location
 
 The header of each location page has a **Share** button next to Export. Clicking it opens a modal that:
@@ -118,12 +142,14 @@ efandpi/
 │       ├── models.py        # User, Location, Item ORM models
 │       ├── schemas.py       # Pydantic request/response models
 │       ├── auth.py          # JWT + bcrypt helpers, get_current_user dep
+│       ├── storage.py       # S3-compatible client, custom photo upload/delete
 │       └── routers/
 │           ├── auth.py      # POST /auth/register, POST /auth/token
 │           ├── locations.py # GET/POST/DELETE /locations + share endpoints
 │           ├── items.py     # GET/POST/PATCH/DELETE /locations/{id}/items
 │           │                # GET /locations/{id}/items/lookup?barcode=
 │           │                # GET /locations/{id}/items/search?q=
+│           │                # POST/DELETE /locations/{id}/items/{itemId}/image
 │           └── public.py    # GET /public/share/{token} (no auth)
 └── frontend/
     ├── Dockerfile           # Node build + nginx serve (port 3000)
@@ -147,6 +173,7 @@ efandpi/
             ├── ShareButton.tsx       # Opens share modal
             ├── ShareModal.tsx        # Copy/regenerate share link modal
             ├── ItemCard.tsx          # Thumbnail, name, qty controls, delete (+ readOnly mode)
+            ├── ItemPhotoModal.tsx    # Attach/replace/remove an item's custom photo
             └── ExportButton.tsx      # html-to-image PNG download
 ```
 
@@ -167,6 +194,8 @@ efandpi/
 | `POST` | `/locations/{id}/items` | Add item (increments qty if barcode exists) |
 | `PATCH` | `/locations/{id}/items/{itemId}` | Update quantity `{quantity}` |
 | `DELETE` | `/locations/{id}/items/{itemId}` | Remove item |
+| `POST` | `/locations/{id}/items/{itemId}/image` | Upload/replace custom photo (multipart `file`) |
+| `DELETE` | `/locations/{id}/items/{itemId}/image` | Remove custom photo |
 | `POST` | `/locations/{id}/share` | Create share link (idempotent); returns `{token}` |
 | `POST` | `/locations/{id}/share/regenerate` | Replace token (invalidates old link) |
 | `GET` | `/public/share/{token}` | Public read-only view — no auth required |

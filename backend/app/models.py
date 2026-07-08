@@ -50,6 +50,7 @@ class Item(Base):
     brand: Mapped[str | None] = mapped_column(String, nullable=True)
     quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    custom_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
     added_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

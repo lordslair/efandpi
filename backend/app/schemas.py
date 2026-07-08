@@ -54,6 +54,7 @@ class ItemOut(BaseModel):
     brand: str | None
     quantity: int
     thumbnail_url: str | None
+    custom_image_url: str | None
     added_at: datetime
 
     model_config = {"from_attributes": True}
@@ -86,6 +87,7 @@ class SharedItemOut(BaseModel):
     barcode: str
     quantity: int
     thumbnail_url: str | None
+    custom_image_url: str | None
 
 
 class SharedLocationOut(BaseModel):

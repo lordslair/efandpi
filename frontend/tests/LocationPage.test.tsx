@@ -48,6 +48,7 @@ const MOCK_ITEMS = [
     brand: "Ferrero",
     quantity: 2,
     thumbnail_url: null,
+    custom_image_url: null,
     added_at: "2026-01-01T00:00:00Z",
   },
 ];

@@ -7,7 +7,7 @@ function getToken(): string | null {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string>),
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -72,6 +72,7 @@ export interface Item {
   brand: string | null;
   quantity: number;
   thumbnail_url: string | null;
+  custom_image_url: string | null;
   added_at: string;
 }
 
@@ -114,6 +115,7 @@ export interface SharedItem {
   barcode: string;
   quantity: number;
   thumbnail_url: string | null;
+  custom_image_url: string | null;
 }
 
 export interface SharedLocation {
@@ -170,4 +172,21 @@ export async function updateItemQuantity(
 
 export async function deleteItem(locationId: number, itemId: number): Promise<void> {
   return request(`/locations/${locationId}/items/${itemId}`, { method: "DELETE" });
+}
+
+export async function uploadItemImage(
+  locationId: number,
+  itemId: number,
+  file: File
+): Promise<Item> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return request(`/locations/${locationId}/items/${itemId}/image`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function deleteItemImage(locationId: number, itemId: number): Promise<Item> {
+  return request(`/locations/${locationId}/items/${itemId}/image`, { method: "DELETE" });
 }

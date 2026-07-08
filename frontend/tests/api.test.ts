@@ -14,6 +14,8 @@ import {
   updateItemQuantity,
   deleteItem,
   lookupBarcode,
+  uploadItemImage,
+  deleteItemImage,
 } from "../src/api/client";
 
 const api = (p: string) => `${TEST_API_ORIGIN}${p}`;
@@ -165,6 +167,55 @@ describe("deleteItem()", () => {
   it("sends DELETE and resolves without a value", async () => {
     const result = await deleteItem(1, 1);
     expect(result).toBeUndefined();
+  });
+});
+
+describe("uploadItemImage()", () => {
+  it("sends a multipart request and returns the updated item", async () => {
+    let capturedContentType: string | null = null;
+    server.use(
+      http.post(api("/locations/:id/items/:itemId/image"), async ({ request }) => {
+        capturedContentType = request.headers.get("content-type");
+        return HttpResponse.json({
+          id: 1,
+          barcode: "123",
+          name: "Pasta",
+          brand: null,
+          quantity: 1,
+          thumbnail_url: null,
+          custom_image_url: "https://example.com/custom.jpg",
+          added_at: "2026-01-01T00:00:00Z",
+        });
+      })
+    );
+
+    const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
+    const item = await uploadItemImage(1, 1, file);
+
+    expect(item.custom_image_url).toBe("https://example.com/custom.jpg");
+    expect(capturedContentType).toMatch(/^multipart\/form-data/);
+  });
+});
+
+describe("deleteItemImage()", () => {
+  it("sends DELETE and returns the updated item", async () => {
+    server.use(
+      http.delete(api("/locations/:id/items/:itemId/image"), () =>
+        HttpResponse.json({
+          id: 1,
+          barcode: "123",
+          name: "Pasta",
+          brand: null,
+          quantity: 1,
+          thumbnail_url: null,
+          custom_image_url: null,
+          added_at: "2026-01-01T00:00:00Z",
+        })
+      )
+    );
+
+    const item = await deleteItemImage(1, 1);
+    expect(item.custom_image_url).toBeNull();
   });
 });
 

@@ -7,6 +7,7 @@ import ShareButton from "../components/ShareButton";
 import ShareModal from "../components/ShareModal";
 import ItemCard from "../components/ItemCard";
 import ExportButton from "../components/ExportButton";
+import ItemPhotoModal from "../components/ItemPhotoModal";
 
 interface ScanConfirm {
   barcode: string;
@@ -32,6 +33,8 @@ export default function LocationPage() {
   const [scanConfirm, setScanConfirm] = useState<ScanConfirm | null>(null);
   const [manualName, setManualName] = useState("");
   const [confirmQty, setConfirmQty] = useState(1);
+  const [confirmPhotoFile, setConfirmPhotoFile] = useState<File | null>(null);
+  const [photoItem, setPhotoItem] = useState<api.Item | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
@@ -74,6 +77,7 @@ export default function LocationPage() {
       });
       setManualName(result.name ?? "");
       setConfirmQty(1);
+      setConfirmPhotoFile(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Lookup failed");
     } finally {
@@ -92,16 +96,25 @@ export default function LocationPage() {
         quantity: confirmQty,
         thumbnail_url: scanConfirm.thumbnail_url,
       });
+      let finalItem = item;
+      if (confirmPhotoFile) {
+        try {
+          finalItem = await api.uploadItemImage(locationId, item.id, confirmPhotoFile);
+        } catch {
+          // item was created successfully; photo attach is best-effort
+        }
+      }
       setItems((prev) => {
-        const idx = prev.findIndex((i) => i.id === item.id);
+        const idx = prev.findIndex((i) => i.id === finalItem.id);
         if (idx >= 0) {
           const next = [...prev];
-          next[idx] = item;
+          next[idx] = finalItem;
           return next;
         }
-        return [...prev, item];
+        return [...prev, finalItem];
       });
       setScanConfirm(null);
+      setConfirmPhotoFile(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to add item");
     }
@@ -212,6 +225,7 @@ export default function LocationPage() {
                 item={item}
                 onQuantityChange={(qty) => handleQuantityChange(item, qty)}
                 onDelete={() => handleDelete(item.id)}
+                onEditPhoto={() => setPhotoItem(item)}
               />
             ))}
 
@@ -228,6 +242,7 @@ export default function LocationPage() {
                       outOfStock
                       onQuantityChange={(qty) => handleQuantityChange(item, qty)}
                       onDelete={() => handleDelete(item.id)}
+                      onEditPhoto={() => setPhotoItem(item)}
                     />
                   ))}
                 </div>
@@ -254,6 +269,15 @@ export default function LocationPage() {
         <ShareModal
           locationId={locationId}
           onClose={() => setSharing(false)}
+        />
+      )}
+
+      {photoItem && (
+        <ItemPhotoModal
+          locationId={locationId}
+          item={photoItem}
+          onClose={() => setPhotoItem(null)}
+          onUpdated={handleItemAdded}
         />
       )}
 
@@ -286,6 +310,19 @@ export default function LocationPage() {
               </div>
             </div>
 
+            {/* Custom photo */}
+            <div className="mb-5">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Custom photo (optional)
+              </label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => setConfirmPhotoFile(e.target.files?.[0] ?? null)}
+                className="input-field"
+              />
+            </div>
+
             {/* Quantity */}
             <div className="flex items-center gap-3 mb-5">
               <span className="text-sm font-medium text-gray-700">Quantity</span>
@@ -310,7 +347,13 @@ export default function LocationPage() {
             </div>
 
             <div className="flex gap-2">
-              <button className="btn-secondary flex-1" onClick={() => setScanConfirm(null)}>
+              <button
+                className="btn-secondary flex-1"
+                onClick={() => {
+                  setScanConfirm(null);
+                  setConfirmPhotoFile(null);
+                }}
+              >
                 Cancel
               </button>
               <button

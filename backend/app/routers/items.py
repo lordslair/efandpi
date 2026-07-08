@@ -1,7 +1,7 @@
 from typing import Annotated
 
 import openfoodfacts
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +9,7 @@ from ..auth import get_current_user
 from ..database import get_db
 from ..models import Item, Location, User
 from ..schemas import ItemCreate, ItemOut, ItemQuantityUpdate, ProductLookup, ProductSearchResult
+from ..storage import delete_item_image, upload_item_image
 
 router = APIRouter(prefix="/locations/{location_id}/items", tags=["items"])
 
@@ -203,3 +204,58 @@ async def delete_item(
 
     await db.delete(item)
     await db.commit()
+
+
+@router.post("/{item_id}/image", response_model=ItemOut)
+async def upload_item_photo(
+    location_id: int,
+    item_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    file: UploadFile = File(...),
+):
+    await _get_location_for_user(location_id, current_user, db)
+
+    result = await db.execute(
+        select(Item).where(Item.id == item_id, Item.location_id == location_id)
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    old_url = item.custom_image_url
+    new_url = await upload_item_image(current_user.email, item.barcode, file)
+
+    item.custom_image_url = new_url
+    await db.commit()
+    await db.refresh(item)
+
+    if old_url and old_url != new_url:
+        delete_item_image(old_url)
+
+    return item
+
+
+@router.delete("/{item_id}/image", response_model=ItemOut)
+async def delete_item_photo(
+    location_id: int,
+    item_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    await _get_location_for_user(location_id, current_user, db)
+
+    result = await db.execute(
+        select(Item).where(Item.id == item_id, Item.location_id == location_id)
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    if item.custom_image_url:
+        delete_item_image(item.custom_image_url)
+        item.custom_image_url = None
+        await db.commit()
+        await db.refresh(item)
+
+    return item

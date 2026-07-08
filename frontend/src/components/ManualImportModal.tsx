@@ -22,6 +22,7 @@ export default function ManualImportModal({
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   async function handleSearch(e: FormEvent) {
     e.preventDefault();
@@ -56,7 +57,15 @@ export default function ManualImportModal({
         quantity: 1,
         thumbnail_url: selected.thumbnail_url,
       });
-      onAdded(item);
+      let finalItem = item;
+      if (photoFile) {
+        try {
+          finalItem = await api.uploadItemImage(locationId, item.id, photoFile);
+        } catch {
+          // item was created successfully; photo attach is best-effort
+        }
+      }
+      onAdded(finalItem);
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to add item");
@@ -143,6 +152,20 @@ export default function ManualImportModal({
             </ul>
           )}
         </div>
+
+        {selected && (
+          <div className="mt-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Custom photo (optional)
+            </label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+              className="input-field"
+            />
+          </div>
+        )}
 
         <div className="flex gap-2 mt-4 pt-2 border-t border-gray-100">
           <button className="btn-secondary flex-1" onClick={onClose} disabled={adding}>

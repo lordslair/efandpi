@@ -19,6 +19,7 @@ export const MOCK_ITEM = {
   brand: "Ferrero",
   quantity: 2,
   thumbnail_url: null,
+  custom_image_url: null,
   added_at: "2026-01-01T00:00:00Z",
 };
 
@@ -71,6 +72,7 @@ export const handlers = [
               brand: "Ferrero",
               quantity: 2,
               thumbnail_url: null,
+              custom_image_url: null,
             },
           ],
         });
@@ -119,5 +121,13 @@ export const handlers = [
   http.delete(
     api("/locations/:id/items/:itemId"),
     () => new HttpResponse(null, { status: 204 })
+  ),
+
+  http.post(api("/locations/:id/items/:itemId/image"), () =>
+    HttpResponse.json({ ...MOCK_ITEM, custom_image_url: "https://example.com/custom.jpg" })
+  ),
+
+  http.delete(api("/locations/:id/items/:itemId/image"), () =>
+    HttpResponse.json({ ...MOCK_ITEM, custom_image_url: null })
   ),
 ];

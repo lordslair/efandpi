@@ -7,11 +7,13 @@ interface ItemCardProps {
     barcode: string;
     quantity: number;
     thumbnail_url?: string | null;
+    custom_image_url?: string | null;
   };
   readOnly?: boolean;
   outOfStock?: boolean;
   onQuantityChange?: (newQty: number) => void;
   onDelete?: () => void;
+  onEditPhoto?: () => void;
 }
 
 const FALLBACK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23f3f4f6'/%3E%3Ctext x='40' y='48' font-size='32' text-anchor='middle'%3E🥫%3C/text%3E%3C/svg%3E";
@@ -22,6 +24,7 @@ export default function ItemCard({
   outOfStock = false,
   onQuantityChange,
   onDelete,
+  onEditPhoto,
 }: ItemCardProps) {
   return (
     <div
@@ -32,15 +35,25 @@ export default function ItemCard({
       }`}
     >
       {/* Thumbnail */}
-      <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
+      <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
         <img
-          src={item.thumbnail_url ?? FALLBACK}
+          src={item.custom_image_url ?? item.thumbnail_url ?? FALLBACK}
           alt={item.name}
           className="w-full h-full object-contain"
           onError={(e) => {
             (e.target as HTMLImageElement).src = FALLBACK;
           }}
         />
+        {!readOnly && onEditPhoto && (
+          <button
+            onClick={onEditPhoto}
+            className="absolute bottom-0 right-0 w-5 h-5 rounded-tl-lg bg-black/50 text-white
+                       flex items-center justify-center text-[10px] leading-none"
+            aria-label="Edit photo"
+          >
+            📷
+          </button>
+        )}
       </div>
 
       {/* Name + brand + barcode */}
