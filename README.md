@@ -46,7 +46,7 @@ S3_ACCESS_KEY_ID=...
 S3_SECRET_ACCESS_KEY=...
 S3_REGION=gra
 # Optional: only needed if the provider's public read URL differs from
-# <S3_ENDPOINT_URL>/<S3_BUCKET>/<key>
+# the default virtual-hosted-style https://<S3_BUCKET>.<S3_ENDPOINT_URL host>/<key>
 S3_PUBLIC_BASE_URL=
 ```
 

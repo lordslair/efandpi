@@ -1,5 +1,6 @@
 import hashlib
 import os
+from urllib.parse import urlparse
 
 import boto3
 from botocore.client import Config
@@ -44,10 +45,19 @@ def _object_key(user_email: str, barcode: str, ext: str) -> str:
 def _public_url(key: str) -> str:
     if S3_PUBLIC_BASE_URL:
         return f"{S3_PUBLIC_BASE_URL.rstrip('/')}/{key}"
-    return f"{S3_ENDPOINT_URL.rstrip('/')}/{S3_BUCKET}/{key}"
+    endpoint = urlparse(S3_ENDPOINT_URL)
+    scheme = endpoint.scheme or "https"
+    # Virtual-hosted-style: bucket is part of the FQDN, not the path,
+    # e.g. https://<bucket>.s3.gra.io.cloud.ovh.net/<key>
+    return f"{scheme}://{S3_BUCKET}.{endpoint.netloc}/{key}"
 
 
 def _key_from_url(url: str) -> str | None:
+    if S3_ENDPOINT_URL:
+        parsed = urlparse(url)
+        if parsed.netloc == f"{S3_BUCKET}.{urlparse(S3_ENDPOINT_URL).netloc}":
+            return parsed.path.lstrip("/")
+    # Fall back to path-style parsing for URLs stored before this format changed.
     marker = f"/{S3_BUCKET}/"
     idx = url.find(marker)
     if idx != -1:
