@@ -133,7 +133,6 @@ export async function regenerateShareLink(locationId: number): Promise<ShareLink
 
 export async function getSharedLocation(token: string): Promise<SharedLocation> {
   const res = await fetch(`${BASE_URL}/public/share/${encodeURIComponent(token)}`);
-  if (res.status === 204) return { name: "", items: [] };
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? "Not found");
   return data as SharedLocation;

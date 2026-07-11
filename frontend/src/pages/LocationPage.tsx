@@ -317,6 +317,7 @@ export default function LocationPage() {
               </label>
               <input
                 type="file"
+                aria-label="Custom photo (optional)"
                 accept="image/jpeg,image/png,image/webp"
                 onChange={(e) => setConfirmPhotoFile(e.target.files?.[0] ?? null)}
                 className="input-field"

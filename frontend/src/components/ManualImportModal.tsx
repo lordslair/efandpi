@@ -160,6 +160,7 @@ export default function ManualImportModal({
             </label>
             <input
               type="file"
+              aria-label="Custom photo (optional)"
               accept="image/jpeg,image/png,image/webp"
               onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
               className="input-field"

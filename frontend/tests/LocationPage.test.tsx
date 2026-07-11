@@ -1,8 +1,8 @@
 // Pattern B — page integration test (real AuthProvider + MSW)
 // BarcodeScanner and ExportButton are mocked because they use camera/canvas APIs
 // that are not available in jsdom.
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { http, HttpResponse } from "msw";
@@ -270,6 +270,96 @@ describe("LocationPage — scan flow", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByText("Unknown product")).not.toBeInTheDocument();
   });
+
+  it("swaps the scan-confirm preview to the fallback image on load error", async () => {
+    server.use(
+      http.get(api("/locations/:id/items/lookup"), () =>
+        HttpResponse.json({
+          barcode: "3017620422003",
+          name: "Juice",
+          thumbnail_url: "https://example.com/broken.jpg",
+          found: true,
+        })
+      )
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("This location is empty");
+
+    await user.click(screen.getByRole("button", { name: /Scan Barcode/i }));
+    await user.click(screen.getByRole("button", { name: "Trigger Scan" }));
+    await screen.findByText("Product found");
+
+    const img = document.querySelector('img[alt=""]') as HTMLImageElement;
+    fireEvent.error(img);
+
+    expect(img.getAttribute("src")).toMatch(/^data:image\/svg\+xml/);
+  });
+
+  it("shows an error message when the barcode lookup fails", async () => {
+    server.use(
+      http.get(api("/locations/:id/items/lookup"), () =>
+        HttpResponse.json({ detail: "Lookup failed" }, { status: 502 })
+      )
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("This location is empty");
+
+    await user.click(screen.getByRole("button", { name: /Scan Barcode/i }));
+    await user.click(screen.getByRole("button", { name: "Trigger Scan" }));
+
+    expect(await screen.findByText("Lookup failed")).toBeInTheDocument();
+    expect(screen.queryByText("Unknown product")).not.toBeInTheDocument();
+  });
+
+  it("shows an error message when adding a scanned item fails", async () => {
+    server.use(
+      http.post(api("/locations/:id/items"), () =>
+        HttpResponse.json({ detail: "Failed to add item" }, { status: 500 })
+      )
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("This location is empty");
+
+    await user.click(screen.getByRole("button", { name: /Scan Barcode/i }));
+    await user.click(screen.getByRole("button", { name: "Trigger Scan" }));
+    await screen.findByText("Unknown product");
+
+    await user.type(screen.getByPlaceholderText("Product name (required)"), "Juice");
+    await user.click(screen.getByRole("button", { name: "Add to list" }));
+
+    expect(await screen.findByText("Failed to add item")).toBeInTheDocument();
+    // The modal stays open since the add failed
+    expect(screen.getByText("Unknown product")).toBeInTheDocument();
+  });
+
+  it("merges into the existing item instead of duplicating when the scanned barcode already exists", async () => {
+    server.use(
+      http.get(api("/locations/:id/items"), () => HttpResponse.json(MOCK_ITEMS)),
+      http.post(api("/locations/:id/items"), () =>
+        HttpResponse.json({ ...MOCK_ITEMS[0], quantity: MOCK_ITEMS[0].quantity + 1 })
+      )
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Nutella");
+
+    await user.click(screen.getByRole("button", { name: /Scan Barcode/i }));
+    await user.click(screen.getByRole("button", { name: "Trigger Scan" }));
+    await screen.findByText("Unknown product");
+
+    await user.type(screen.getByPlaceholderText("Product name (required)"), "Nutella");
+    await user.click(screen.getByRole("button", { name: "Add to list" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Unknown product")).not.toBeInTheDocument()
+    );
+    // Merged into the existing row rather than appended as a duplicate
+    expect(screen.getAllByText("Nutella")).toHaveLength(1);
+    expect(screen.getByText(String(MOCK_ITEMS[0].quantity + 1))).toBeInTheDocument();
+  });
 });
 
 describe("LocationPage — item quantity and delete", () => {
@@ -420,5 +510,148 @@ describe("LocationPage — manual import", () => {
       expect(screen.queryByText("Manual Import", { selector: "h3" })).not.toBeInTheDocument()
     );
     expect(await screen.findByText("Nutella")).toBeInTheDocument();
+  });
+});
+
+describe("LocationPage — scan confirm photo", () => {
+  it("uploads the chosen photo after adding a scanned item", async () => {
+    let uploadedItemId: string | undefined;
+    server.use(
+      http.post(api("/locations/:id/items/:itemId/image"), ({ params }) => {
+        uploadedItemId = params.itemId as string;
+        return HttpResponse.json({ ...MOCK_ITEMS[0], custom_image_url: "https://example.com/custom.jpg" });
+      })
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("This location is empty");
+
+    await user.click(screen.getByRole("button", { name: /Scan Barcode/i }));
+    await user.click(screen.getByRole("button", { name: "Trigger Scan" }));
+    await screen.findByText("Unknown product");
+
+    await user.type(screen.getByPlaceholderText("Product name (required)"), "Juice");
+    const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText("Custom photo (optional)"), file);
+    await user.click(screen.getByRole("button", { name: "Add to list" }));
+
+    await waitFor(() => expect(uploadedItemId).toBe(String(MOCK_ITEMS[0].id)));
+    await waitFor(() =>
+      expect(screen.queryByText("Unknown product")).not.toBeInTheDocument()
+    );
+  });
+
+  it("still adds the scanned item when the photo upload fails (best-effort)", async () => {
+    server.use(
+      http.post(api("/locations/:id/items/:itemId/image"), () =>
+        HttpResponse.json({ detail: "Failed to upload image" }, { status: 502 })
+      )
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("This location is empty");
+
+    await user.click(screen.getByRole("button", { name: /Scan Barcode/i }));
+    await user.click(screen.getByRole("button", { name: "Trigger Scan" }));
+    await screen.findByText("Unknown product");
+
+    await user.type(screen.getByPlaceholderText("Product name (required)"), "Juice");
+    const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText("Custom photo (optional)"), file);
+    await user.click(screen.getByRole("button", { name: "Add to list" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Unknown product")).not.toBeInTheDocument()
+    );
+    expect(await screen.findByText("Juice")).toBeInTheDocument();
+  });
+});
+
+describe("LocationPage — item photo", () => {
+  const originalCreateObjectURL = URL.createObjectURL;
+
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => "blob:mock-preview");
+    server.use(
+      http.get(api("/locations/:id/items"), () => HttpResponse.json(MOCK_ITEMS))
+    );
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = originalCreateObjectURL;
+  });
+
+  it("opens the photo modal for an item when its edit-photo button is clicked", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Nutella");
+
+    await user.click(screen.getByRole("button", { name: "Edit photo" }));
+    expect(screen.getByText("Product photo")).toBeInTheDocument();
+  });
+
+  it("updates the item's photo in the list after a successful upload", async () => {
+    server.use(
+      http.post(api("/locations/:id/items/:itemId/image"), () =>
+        HttpResponse.json({ ...MOCK_ITEMS[0], custom_image_url: "https://example.com/custom.jpg" })
+      )
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Nutella");
+
+    await user.click(screen.getByRole("button", { name: "Edit photo" }));
+    const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText("Product photo"), file);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Product photo")).not.toBeInTheDocument()
+    );
+    const img = document.querySelector(
+      `img[alt="Nutella"]`
+    ) as HTMLImageElement;
+    expect(img).toHaveAttribute("src", "https://example.com/custom.jpg");
+  });
+
+  it("closes the photo modal without changes when Cancel is clicked", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Nutella");
+
+    await user.click(screen.getByRole("button", { name: "Edit photo" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByText("Product photo")).not.toBeInTheDocument();
+  });
+});
+
+describe("LocationPage — out-of-stock item actions", () => {
+  const OUT_OF_STOCK_ITEM = { ...MOCK_ITEMS[0], quantity: 0 };
+
+  beforeEach(() => {
+    server.use(
+      http.get(api("/locations/:id/items"), () => HttpResponse.json([OUT_OF_STOCK_ITEM]))
+    );
+  });
+
+  it("deletes an out-of-stock item when its delete button is clicked", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Out of Stock");
+
+    await user.click(screen.getByRole("button", { name: "Delete item" }));
+
+    await waitFor(() => expect(screen.queryByText("Nutella")).not.toBeInTheDocument());
+    expect(screen.getByText("This location is empty")).toBeInTheDocument();
+  });
+
+  it("opens the photo modal for an out-of-stock item when its edit-photo button is clicked", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Out of Stock");
+
+    await user.click(screen.getByRole("button", { name: "Edit photo" }));
+    expect(screen.getByText("Product photo")).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 # Frontend Testing Guide
 
-A complete reference for the test suite. The patterns documented here are intentionally framework-agnostic enough to be reused across Vite + React projects.
+A complete reference for the test suite. The patterns documented here are intentionally framework-agnostic enough to be reused across Vite + React projects — see [Adapting to a New Project](#adapting-to-a-new-project) at the end.
 
 ---
 
@@ -30,13 +30,13 @@ A complete reference for the test suite. The patterns documented here are intent
 
 ## Configuration
 
-Tests are configured inside `vite.config.js` under the `test` key — no separate `vitest.config.ts` is needed.
+Tests are configured inside `vite.config.ts` under the `test` key — no separate `vitest.config.ts` is needed.
 
-```js
-// vite.config.js (test block)
+```ts
+// vite.config.ts (test block)
 test: {
   environment: 'jsdom',          // browser-like DOM
-  setupFiles: ['./tests/setup.js'],
+  setupFiles: ['./tests/setup.ts'],
   globals: true,                 // describe/it/expect available without imports
   env: {
     VITE_API_URL: 'http://127.0.0.1:9',   // dummy origin consumed by MSW
@@ -44,12 +44,12 @@ test: {
   coverage: {
     provider: 'v8',
     reporter: ['text', 'html'],
-    include: ['src/**/*.{js,jsx}'],
-    exclude: ['src/main.jsx'],
+    include: ['src/**/*.{ts,tsx}'],
+    exclude: ['src/main.tsx'],
   },
   alias: {
     // Stub Vite virtual modules that don't resolve in jsdom
-    'virtual:pwa-register/react': resolve(__dirname, 'tests/mocks/pwa-register-react.js'),
+    'virtual:pwa-register/react': path.resolve(__dirname, 'tests/mocks/pwa-register-react.ts'),
   },
 },
 ```
@@ -65,28 +65,28 @@ test: {
 
 ```
 tests/
-├── setup.js              # Global lifecycle: MSW + jest-dom + cleanup
-├── test-utils.jsx         # renderWithProviders helper
-├── constants.js           # TEST_API_ORIGIN (must match vite.config test.env)
+├── setup.ts               # Global lifecycle: MSW + jest-dom + cleanup
+├── test-utils.tsx         # renderWithProviders helper
+├── constants.ts           # TEST_API_ORIGIN (must match vite.config test.env)
 ├── msw/
-│   ├── server.js          # MSW Node server instance
-│   └── handlers.js        # Default happy-path handlers
+│   ├── server.ts          # MSW Node server instance
+│   └── handlers.ts        # Default happy-path handlers
 ├── mocks/
-│   └── pwa-register-react.js  # Stub for virtual:pwa-register/react
-└── *.test.jsx             # Test files
+│   └── pwa-register-react.ts  # Stub for virtual:pwa-register/react
+└── *.test.tsx / *.test.ts # Test files
 ```
 
-All test files live under `tests/` at the project root — not co-located with source files. Named `*.test.jsx` (or `*.test.js` for non-JSX files).
+All test files live under `tests/` at the project root — not co-located with source files. Named `*.test.tsx` (or `*.test.ts` for non-JSX files, e.g. `api.test.ts`).
 
 ---
 
-## Setup File (`tests/setup.js`)
+## Setup File (`tests/setup.ts`)
 
-```js
+```ts
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll } from 'vitest'
-import { server } from './msw/server.js'
+import { server } from './msw/server'
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 
@@ -105,31 +105,30 @@ afterAll(() => server.close())
 
 ## MSW — Network Mocking
 
-### Server (`tests/msw/server.js`)
+### Server (`tests/msw/server.ts`)
 
-```js
+```ts
 import { setupServer } from 'msw/node'
-import { handlers } from './handlers.js'
+import { handlers } from './handlers'
 
 export const server = setupServer(...handlers)
 ```
 
-### Default Handlers (`tests/msw/handlers.js`)
+### Default Handlers (`tests/msw/handlers.ts`)
 
 Define one handler per API endpoint used by the app. These represent the **happy path** and are active for every test:
 
-```js
+```ts
 import { http, HttpResponse } from 'msw'
-import { TEST_API_ORIGIN } from '../constants.js'
+import { TEST_API_ORIGIN } from '../constants'
 
-const base = (path) => `${TEST_API_ORIGIN}${path}`
+const api = (path: string) => `${TEST_API_ORIGIN}${path}`
 
 export const handlers = [
-  http.post(base('/auth/login'), async ({ request }) => {
-    await request.json()
-    return HttpResponse.json({ access_token: 'test-access-token' })
-  }),
-  // ... one entry per endpoint
+  http.post(api('/auth/token'), () =>
+    HttpResponse.json({ access_token: 'test-access-token', token_type: 'bearer' })
+  ),
+  // ... one entry per endpoint, e.g. /locations, /locations/:id/items, /public/share/:token
 ]
 ```
 
@@ -137,14 +136,14 @@ export const handlers = [
 
 Override a handler inside a specific test to simulate errors or edge cases:
 
-```js
+```ts
 import { http, HttpResponse } from 'msw'
-import { server } from './msw/server.js'
+import { server } from './msw/server'
 
 it('shows an error on 401', async () => {
   server.use(
-    http.post(`${TEST_API_ORIGIN}/auth/login`, () =>
-      HttpResponse.json({ detail: 'Invalid credentials' }, { status: 401 })
+    http.post(`${TEST_API_ORIGIN}/auth/token`, () =>
+      HttpResponse.json({ detail: 'Incorrect email or password' }, { status: 401 })
     )
   )
   // ... rest of test
@@ -157,26 +156,31 @@ it('shows an error on 401', async () => {
 
 ## Test Utilities
 
-### `renderWithProviders` (`tests/test-utils.jsx`)
+### `renderWithProviders` (`tests/test-utils.tsx`)
 
 Wraps the component under test in all required providers:
 
-```jsx
-import { render } from '@testing-library/react'
+```tsx
+import { render, type RenderOptions } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { AuthProvider } from '../src/context/AuthContext.jsx'
+import { AuthProvider } from '../src/hooks/useAuth'
 
-export function renderWithProviders(ui, { route = '/', ...options } = {}) {
-  return render(
-    <MemoryRouter initialEntries={[route]}>
-      <AuthProvider>{ui}</AuthProvider>
-    </MemoryRouter>,
-    options
-  )
+export function renderWithProviders(
+  ui: React.ReactElement,
+  { route = '/', ...options }: { route?: string } & Omit<RenderOptions, 'wrapper'> = {}
+) {
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <MemoryRouter initialEntries={[route]}>
+        <AuthProvider>{children}</AuthProvider>
+      </MemoryRouter>
+    )
+  }
+  return render(ui, { wrapper: Wrapper, ...options })
 }
 ```
 
-Use this when the component under test depends on routing or auth context. The `route` option sets the initial URL for route-dependent rendering.
+Use this when the component under test depends on routing or auth context (most pages do). The `route` option sets the initial URL for route-dependent rendering.
 
 ---
 
@@ -186,206 +190,210 @@ Two complementary strategies are used depending on what is being tested:
 
 ### 1. MSW — Mock the network layer
 
-Used when testing components or services that issue real `fetch` calls through `api.js`. The full fetch chain runs; only the HTTP response is intercepted.
+Used when testing components or pages that issue real `fetch` calls through `src/api/client.ts`. The full fetch chain runs; only the HTTP response is intercepted. This is the **default** strategy in this project — most test files use it.
 
-**Best for:** form submissions, API service unit tests, integration tests where the real auth flow should run end-to-end.
+**Best for:** form submissions, API client unit tests (`api.test.ts`), page/component integration tests where the real auth flow and API calls should run end-to-end (`LoginPage.test.tsx`, `HomePage.test.tsx`, `LocationPage.test.tsx`, `ManualImportModal.test.tsx`, `ItemPhotoModal.test.tsx`).
 
 ### 2. `vi.mock()` — Mock a module
 
-Used to isolate a component from its dependencies by replacing an entire module with controlled stubs.
+Used to isolate a component from a dependency that can't run in jsdom, or to control something MSW can't reach (e.g. `useNavigate`).
 
-**Mock `AuthContext` to isolate a component from auth state:**
+**Mock `react-router-dom`'s `useNavigate` to assert on navigation without a real router history:**
 
-```jsx
-import { vi } from 'vitest'
-import * as AuthModule from '../src/context/AuthContext.jsx'
-
-const mockUseAuth = vi.fn()
-vi.mock('../src/context/AuthContext.jsx', () => ({
-  useAuth: () => mockUseAuth(),
-  AuthProvider: ({ children }) => children,
+```tsx
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => ({
+  ...(await vi.importActual<typeof import('react-router-dom')>('react-router-dom')),
+  useNavigate: () => mockNavigate,
 }))
-
-const authState = (overrides = {}) => ({
-  user: null,
-  token: null,
-  loading: false,
-  login: vi.fn(),
-  logout: vi.fn(),
-  register: vi.fn(),
-  ...overrides,
-})
-
-beforeEach(() => mockUseAuth.mockReturnValue(authState()))
 ```
 
-**Mock the API service to isolate context logic:**
+**Mock a component that depends on browser APIs unavailable in jsdom** (used for `BarcodeScanner`, which needs camera access, and `ExportButton`, which needs canvas — see `LocationPage.test.tsx`):
 
-```js
-import { vi } from 'vitest'
-import * as api from '../src/services/api.js'
+```tsx
+vi.mock('../src/components/BarcodeScanner', () => ({
+  default: ({ onScan, onClose }: { onScan: (b: string) => void; onClose: () => void }) => (
+    <div data-testid="barcode-scanner">
+      <button onClick={() => onScan('3017620422003')}>Trigger Scan</button>
+      <button onClick={onClose}>Close Scanner</button>
+    </div>
+  ),
+}))
+```
 
-vi.mock('../src/services/api.js')
+### Gotcha: stubbing `navigator.clipboard`
 
-beforeEach(() => {
-  vi.mocked(api.login).mockResolvedValue({ access_token: 'tok' })
-})
+jsdom ships its own `navigator.clipboard` (a real `Clipboard`/`EventTarget` instance), and `@testing-library/user-event`'s `userEvent.setup()` lazily (re)initializes it. If you stub `navigator.clipboard` in a `beforeEach` that runs *before* the test calls `userEvent.setup()`, your stub gets silently clobbered and `writeText` calls just vanish (see `ShareModal.test.tsx`). Always stub it *after* `userEvent.setup()`, inside the test body:
+
+```ts
+const user = userEvent.setup();
+Object.defineProperty(navigator, 'clipboard', {
+  value: { writeText: vi.fn().mockResolvedValue(undefined) },
+  configurable: true,
+});
 ```
 
 ---
 
 ## Testing Patterns
 
-### A — Context unit test
+Each test file opens with a `// Pattern X` comment identifying which of these it follows.
 
-Tests a React context provider in isolation by rendering a minimal consumer component.
+### A — Context/hook unit test (dependency module mocked, no network)
 
-```jsx
+Tests a React context/hook provider in isolation by rendering a minimal consumer component, with the API module mocked directly (no MSW involved). See `useAuth.test.tsx`.
+
+```tsx
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AuthProvider, useAuth } from '../src/context/AuthContext.jsx'
-import * as api from '../src/services/api.js'
+import { AuthProvider, useAuth } from '../src/hooks/useAuth'
+import * as apiClient from '../src/api/client'
 
-vi.mock('../src/services/api.js')
+vi.mock('../src/api/client')
+const mockedLogin = vi.mocked(apiClient.login)
 
 function Consumer() {
-  const { user, login } = useAuth()
+  const { token, login } = useAuth()
   return (
     <>
-      <span>{user?.email ?? 'none'}</span>
+      <span data-testid="token">{token ?? 'none'}</span>
       <button onClick={() => login('a@b.com', 'pw')}>Login</button>
     </>
   )
 }
 
-it('updates user after successful login', async () => {
-  vi.mocked(api.login).mockResolvedValue({ access_token: 'tok' })
-  vi.mocked(api.getProfile).mockResolvedValue({ email: 'a@b.com' })
+it('updates token after successful login', async () => {
+  mockedLogin.mockResolvedValue('test-token')
 
   render(<AuthProvider><Consumer /></AuthProvider>)
   await userEvent.setup().click(screen.getByRole('button', { name: 'Login' }))
-  await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument())
+  await waitFor(() => expect(screen.getByTestId('token').textContent).toBe('test-token'))
 })
 ```
 
-### B — Form integration test (MSW + renderWithProviders)
+### B — Page/component integration test (MSW + renderWithProviders)
 
-The real auth context and API service run; only HTTP is mocked. Validates the full user-visible flow.
+The real `AuthProvider` and `api/client.ts` run; only HTTP is mocked. Validates the full user-visible flow. This is the most common pattern in the suite (`LoginPage.test.tsx`, `HomePage.test.tsx`, `LocationPage.test.tsx`, `ManualImportModal.test.tsx`, `ItemPhotoModal.test.tsx`).
 
-```jsx
+```tsx
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { renderWithProviders } from './test-utils.jsx'
-import LoginForm from '../src/components/LoginForm.jsx'
-import { server } from './msw/server.js'
 import { http, HttpResponse } from 'msw'
-import { TEST_API_ORIGIN } from './constants.js'
+import { server } from './msw/server'
+import { TEST_API_ORIGIN } from './constants'
+import { renderWithProviders } from './test-utils'
+import LoginPage from '../src/pages/LoginPage'
 
-it('stores token on successful login', async () => {
-  renderWithProviders(<LoginForm />)
+const api = (p: string) => `${TEST_API_ORIGIN}${p}`
+
+it('stores the token and navigates to / on successful login', async () => {
+  renderWithProviders(<LoginPage />)
   const user = userEvent.setup()
-  await user.type(screen.getByLabelText(/email/i), 'a@b.com')
-  await user.type(screen.getByLabelText(/password/i), 'secret')
-  await user.click(screen.getByRole('button', { name: /log in/i }))
-  await screen.findByText(/dashboard/i)
-  expect(localStorage.getItem('token')).toBe('test-access-token')
+  await user.type(screen.getByPlaceholderText('you@example.com'), 'a@b.com')
+  await user.type(screen.getByPlaceholderText('••••••••'), 'secret')
+  await user.click(screen.getByRole('button', { name: 'Sign In' }))
+  await waitFor(() => expect(localStorage.getItem('token')).toBe('test-access-token'))
 })
 
-it('shows error on 401', async () => {
+it('shows the server error message on 401', async () => {
   server.use(
-    http.post(`${TEST_API_ORIGIN}/auth/login`, () =>
-      HttpResponse.json({ detail: 'Invalid credentials' }, { status: 401 })
+    http.post(api('/auth/token'), () =>
+      HttpResponse.json({ detail: 'Incorrect email or password' }, { status: 401 })
     )
   )
-  renderWithProviders(<LoginForm />)
+  renderWithProviders(<LoginPage />)
   const user = userEvent.setup()
-  await user.type(screen.getByLabelText(/email/i), 'bad@b.com')
-  await user.type(screen.getByLabelText(/password/i), 'wrong')
-  await user.click(screen.getByRole('button', { name: /log in/i }))
-  expect(await screen.findByRole('alert')).toHaveTextContent(/invalid credentials/i)
+  await user.type(screen.getByPlaceholderText('you@example.com'), 'bad@b.com')
+  await user.type(screen.getByPlaceholderText('••••••••'), 'wrong')
+  await user.click(screen.getByRole('button', { name: 'Sign In' }))
+  expect(await screen.findByText('Incorrect email or password')).toBeInTheDocument()
 })
 ```
 
 ### C — Service unit test (pure fetch, no React)
 
-Tests the raw API service without rendering any component.
+Tests the raw `api/client.ts` functions without rendering any component. See `api.test.ts`.
 
-```js
-import { server } from './msw/server.js'
+```ts
+import { server } from './msw/server'
 import { http, HttpResponse } from 'msw'
-import { TEST_API_ORIGIN } from './constants.js'
-import { login } from '../src/services/api.js'
+import { TEST_API_ORIGIN } from './constants'
+import { login } from '../src/api/client'
 
-it('throws when response is not JSON', async () => {
+it('throws with the server detail message on 401', async () => {
   server.use(
-    http.post(`${TEST_API_ORIGIN}/auth/login`, () =>
-      new HttpResponse('<html>Error</html>', {
-        status: 500,
-        headers: { 'Content-Type': 'text/html' },
-      })
+    http.post(`${TEST_API_ORIGIN}/auth/token`, () =>
+      HttpResponse.json({ detail: 'Incorrect email or password' }, { status: 401 })
     )
   )
-  await expect(login('a@b.com', 'pw')).rejects.toThrow()
+  await expect(login('bad@b.com', 'wrong')).rejects.toThrow('Incorrect email or password')
 })
 ```
 
-### D — Routing test (mocked auth state)
+### D — Routing test (real providers, real MSW)
 
-Tests that routes render the correct component and redirect unauthenticated users.
+Tests that routes render the correct page and gate protected routes correctly. Unlike a generic React app that might mock the auth context for this, this project's `App.test.tsx` renders the **real** `AuthProvider` and just seeds `localStorage` directly — simpler, and it exercises the real `ProtectedRoute` logic instead of a stand-in.
 
-```jsx
+```tsx
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
-import App from '../src/App.jsx'
+import App from '../src/App'
 
-vi.mock('../src/context/AuthContext.jsx', () => ({
-  useAuth: () => mockUseAuth(),
-  AuthProvider: ({ children }) => children,
-}))
-
-it('redirects unauthenticated users to /login', () => {
-  mockUseAuth.mockReturnValue(authState({ token: null }))
-  render(<MemoryRouter initialEntries={['/dashboard']}><App /></MemoryRouter>)
-  expect(screen.getByRole('heading', { name: /log in/i })).toBeInTheDocument()
+beforeEach(() => {
+  window.history.pushState({}, '', '/')
 })
 
-it('renders dashboard for authenticated users', () => {
-  mockUseAuth.mockReturnValue(authState({ token: 'tok', user: { email: 'a@b.com' } }))
-  render(<MemoryRouter initialEntries={['/dashboard']}><App /></MemoryRouter>)
-  expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument()
+it('redirects / to /login and shows the login form when unauthenticated', () => {
+  render(<App />)
+  expect(screen.getByRole('heading', { name: 'EfanDpi' })).toBeInTheDocument()
+})
+
+it('renders the home page when a token is set', async () => {
+  localStorage.setItem('token', 'test-token')
+  render(<App />)
+  expect(await screen.findByText('My Locations')).toBeInTheDocument()
 })
 ```
 
-### E — Presentational component test (conditional rendering)
+### E — Presentational component test (conditional rendering, no network)
 
-Tests conditional UI by varying the mock auth state.
+Tests conditional UI purely by varying props — no providers, no network. See `ItemCard.test.tsx`.
 
-```jsx
-it('shows admin link when user is admin', () => {
-  mockUseAuth.mockReturnValue(authState({ user: { is_admin: true } }))
-  render(<Sidebar />)
-  expect(screen.getByRole('link', { name: /admin/i })).toBeInTheDocument()
+```tsx
+import { render, screen } from '@testing-library/react'
+import ItemCard from '../src/components/ItemCard'
+
+it('does not render a brand line when brand is null', () => {
+  render(<ItemCard item={{ ...BASE_ITEM, brand: null }} />)
+  expect(screen.queryByText('Ferrero')).not.toBeInTheDocument()
 })
 
-it('hides admin link for regular users', () => {
-  mockUseAuth.mockReturnValue(authState({ user: { is_admin: false } }))
-  render(<Sidebar />)
-  expect(screen.queryByRole('link', { name: /admin/i })).not.toBeInTheDocument()
+it('does not render an edit-photo button in readOnly mode', () => {
+  render(<ItemCard item={BASE_ITEM} readOnly onEditPhoto={vi.fn()} />)
+  expect(screen.queryByRole('button', { name: 'Edit photo' })).not.toBeInTheDocument()
 })
 ```
 
-### F — Client-side validation (no network call)
+### F — Best-effort / silent-failure test
 
-Tests validation logic that fires before any fetch is made.
+Tests a deliberately-swallowed error path — e.g. attaching a photo right after creating an item is treated as best-effort, so a failed upload must not block the rest of the flow. See `ManualImportModal.test.tsx` and `LocationPage.test.tsx`. Whenever a `catch` block intentionally does nothing (or only logs), add a test proving the fallback behavior — silent catches are exactly the code most likely to regress unnoticed.
 
-```jsx
-it('shows error when passwords do not match', async () => {
-  renderWithProviders(<RegisterForm />)
+```tsx
+it('still adds the item and closes when the photo upload fails (best-effort)', async () => {
+  server.use(
+    http.post(api('/locations/:id/items/:itemId/image'), () =>
+      HttpResponse.json({ detail: 'Failed to upload image' }, { status: 502 })
+    )
+  )
   const user = userEvent.setup()
-  await user.type(screen.getByLabelText(/^password/i), 'abc123')
-  await user.type(screen.getByLabelText(/confirm/i), 'xyz789')
-  await user.click(screen.getByRole('button', { name: /register/i }))
-  expect(screen.getByRole('alert')).toHaveTextContent(/do not match/i)
+  const { onClose, onAdded } = renderModal()
+
+  await searchAndSelect(user)
+  await user.upload(screen.getByLabelText('Custom photo (optional)'), someFile)
+  await user.click(screen.getByRole('button', { name: /^Add$/ }))
+
+  await waitFor(() => expect(onAdded).toHaveBeenCalled())
+  expect(onAdded.mock.calls[0][0].custom_image_url).toBeNull()
+  expect(onClose).toHaveBeenCalledOnce()
 })
 ```
 
@@ -393,19 +401,19 @@ it('shows error when passwords do not match', async () => {
 
 ## Stubbing Vite Virtual Modules
 
-Vite plugins expose virtual modules (e.g. `virtual:pwa-register/react`) that do not resolve in jsdom. Stub them via `test.alias` in `vite.config.js`:
+Vite plugins expose virtual modules (e.g. `virtual:pwa-register/react`, from `vite-plugin-pwa`) that do not resolve in jsdom. Stub them via `test.alias` in `vite.config.ts`:
 
-```js
-// vite.config.js
+```ts
+// vite.config.ts
 test: {
   alias: {
-    'virtual:pwa-register/react': resolve(__dirname, 'tests/mocks/pwa-register-react.js'),
+    'virtual:pwa-register/react': path.resolve(__dirname, 'tests/mocks/pwa-register-react.ts'),
   },
 }
 ```
 
-```js
-// tests/mocks/pwa-register-react.js
+```ts
+// tests/mocks/pwa-register-react.ts
 export function useRegisterSW() {
   return {
     needRefresh: [false, () => {}],
@@ -425,31 +433,33 @@ Apply the same pattern for any other Vite-only virtual module (`virtual:*`).
 npm run test:coverage
 ```
 
-HTML report is written to `coverage/index.html`. Configured in `vite.config.js`:
+HTML report is written to `coverage/index.html`. Configured in `vite.config.ts`:
 
-```js
+```ts
 coverage: {
   provider: 'v8',
   reporter: ['text', 'html'],
-  include: ['src/**/*.{js,jsx}'],
-  exclude: ['src/main.jsx'],   // entry point — not unit-testable
+  include: ['src/**/*.{ts,tsx}'],
+  exclude: ['src/main.tsx'],   // entry point — not unit-testable
 },
 ```
 
 Add `coverage/` to `.gitignore`.
 
+There is currently no enforced coverage threshold (`coverage.thresholds` is unset) — a regression in coverage won't fail CI on its own. Components that wrap a browser API unavailable in jsdom (`BarcodeScanner.tsx`, `ExportButton.tsx`) are expected to show 0% since they're stubbed via `vi.mock()` rather than exercised directly; every other component/page should have a dedicated test file.
+
 ---
 
-## ESLint Integration
+## Linting
 
-Add a Vitest globals override so ESLint does not flag `describe`/`it`/`expect` as undefined:
+This project does not currently have ESLint configured (no `eslint.config.js`, no `lint` script in `package.json`). If ESLint is added later, remember to give `tests/**` and `*.test.{ts,tsx}` a globals override so `describe`/`it`/`expect` aren't flagged as undefined:
 
 ```js
 // eslint.config.js
 import globals from 'globals'
 
 {
-  files: ['**/*.test.{js,jsx}', 'tests/**/*.{js,jsx}'],
+  files: ['**/*.test.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
   languageOptions: {
     globals: {
       ...globals.browser,
@@ -473,7 +483,7 @@ frontend-test:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
-        node-version: '24'           # match engines.node in package.json
+        node-version: '24'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
     - run: npm ci
@@ -486,16 +496,20 @@ frontend-test:
     #     path: frontend/coverage/
 ```
 
+There's no `engines.node` field in `package.json` today, so the Node version above is just what CI happens to use — bump it here if the toolchain requirement changes.
+
 ---
 
 ## Adapting to a New Project
 
+This guide's infrastructure (MSW setup, `renderWithProviders`, the lettered patterns) generalizes well beyond this specific app. If reusing it elsewhere:
+
 | If your project has… | Change… |
 |---|---|
-| A different provider (Redux, React Query, etc.) | Update `renderWithProviders` to wrap with that provider |
-| Different `import.meta.env` variables | Add them to `test.env` in `vite.config.js` and export from `tests/constants.js` |
-| TypeScript | Rename files `.test.tsx` / `.test.ts`; Vitest supports TS out of the box via Vite |
-| Co-located tests | Change `include` pattern or use the Vitest default (`**/*.test.*`) instead of the `tests/` layout |
+| A different provider (Redux, React Query, etc.) | Update `renderWithProviders` to wrap with that provider instead of/alongside `AuthProvider` |
+| Different `import.meta.env` variables | Add them to `test.env` in `vite.config.ts` and export from `tests/constants.ts` |
+| JavaScript instead of TypeScript | Rename files `.test.jsx` / `.test.js`; drop the type annotations from the examples above |
+| Co-located tests | Change `coverage.include` pattern or use the Vitest default (`**/*.test.*`) instead of the `tests/` layout |
 | No routing | Remove `MemoryRouter` from `renderWithProviders`; keep the auth provider wrapper only |
 | No auth context | Simplify `renderWithProviders` to a bare `render` re-export or add only the providers you need |
 | Vite virtual modules | Add a stub file under `tests/mocks/` and wire it via `test.alias` |

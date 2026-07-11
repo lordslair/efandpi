@@ -1,6 +1,6 @@
 // Pattern E — presentational component test (no network, no routing)
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ItemCard from "../src/components/ItemCard";
 import type { Item } from "../src/api/client";
@@ -65,6 +65,15 @@ describe("ItemCard — rendering", () => {
     });
     const img = screen.getByRole("img", { name: "Nutella" });
     expect(img).toHaveAttribute("src", "https://example.com/custom.jpg");
+  });
+
+  it("swaps to the fallback image when the src fails to load", () => {
+    renderCard({ thumbnail_url: "https://example.com/broken.jpg" });
+    const img = screen.getByRole("img", { name: "Nutella" });
+
+    fireEvent.error(img);
+
+    expect(img.getAttribute("src")).toMatch(/^data:image\/svg\+xml/);
   });
 });
 

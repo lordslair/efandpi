@@ -69,6 +69,7 @@ export default function ItemPhotoModal({
 
         <input
           type="file"
+          aria-label="Product photo"
           accept="image/jpeg,image/png,image/webp"
           onChange={handleFileChange}
           className="input-field mb-4"
