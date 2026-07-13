@@ -11,7 +11,7 @@ import {
   deleteLocation,
   getItems,
   addItem,
-  updateItemQuantity,
+  updateItem,
   deleteItem,
   lookupBarcode,
   uploadItemImage,
@@ -156,9 +156,9 @@ describe("addItem()", () => {
   });
 });
 
-describe("updateItemQuantity()", () => {
-  it("PATCHes the quantity and returns the updated item", async () => {
-    const item = await updateItemQuantity(1, 1, 5);
+describe("updateItem()", () => {
+  it("PATCHes the given fields and returns the updated item", async () => {
+    const item = await updateItem(1, 1, { quantity: 5 });
     expect(item.quantity).toBe(5);
   });
 });

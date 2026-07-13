@@ -158,14 +158,21 @@ export async function addItem(
   });
 }
 
-export async function updateItemQuantity(
+export interface ItemUpdate {
+  name?: string;
+  brand?: string | null;
+  barcode?: string;
+  quantity?: number;
+}
+
+export async function updateItem(
   locationId: number,
   itemId: number,
-  quantity: number
+  payload: ItemUpdate
 ): Promise<Item> {
   return request(`/locations/${locationId}/items/${itemId}`, {
     method: "PATCH",
-    body: JSON.stringify({ quantity }),
+    body: JSON.stringify(payload),
   });
 }
 

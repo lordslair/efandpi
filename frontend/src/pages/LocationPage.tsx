@@ -8,6 +8,7 @@ import ShareModal from "../components/ShareModal";
 import ItemCard from "../components/ItemCard";
 import ExportButton from "../components/ExportButton";
 import ItemPhotoModal from "../components/ItemPhotoModal";
+import ItemDetailModal from "../components/ItemDetailModal";
 import ImageCropModal from "../components/ImageCropModal";
 
 interface ScanConfirm {
@@ -38,6 +39,7 @@ export default function LocationPage() {
   const [pendingConfirmPhotoFile, setPendingConfirmPhotoFile] = useState<File | null>(null);
   const [confirmPhotoInputKey, setConfirmPhotoInputKey] = useState(0);
   const [photoItem, setPhotoItem] = useState<api.Item | null>(null);
+  const [detailItem, setDetailItem] = useState<api.Item | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
@@ -126,7 +128,7 @@ export default function LocationPage() {
 
   async function handleQuantityChange(item: api.Item, newQty: number) {
     try {
-      const updated = await api.updateItemQuantity(locationId, item.id, newQty);
+      const updated = await api.updateItem(locationId, item.id, { quantity: newQty });
       setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
     } catch {
       // silent
@@ -230,6 +232,7 @@ export default function LocationPage() {
                 onQuantityChange={(qty) => handleQuantityChange(item, qty)}
                 onDelete={() => handleDelete(item.id)}
                 onEditPhoto={() => setPhotoItem(item)}
+                onOpenDetail={() => setDetailItem(item)}
               />
             ))}
 
@@ -247,6 +250,7 @@ export default function LocationPage() {
                       onQuantityChange={(qty) => handleQuantityChange(item, qty)}
                       onDelete={() => handleDelete(item.id)}
                       onEditPhoto={() => setPhotoItem(item)}
+                      onOpenDetail={() => setDetailItem(item)}
                     />
                   ))}
                 </div>
@@ -282,6 +286,26 @@ export default function LocationPage() {
           item={photoItem}
           onClose={() => setPhotoItem(null)}
           onUpdated={handleItemAdded}
+        />
+      )}
+
+      {detailItem && (
+        <ItemDetailModal
+          locationId={locationId}
+          item={detailItem}
+          onClose={() => setDetailItem(null)}
+          onUpdated={(item) => {
+            handleItemAdded(item);
+            setDetailItem(null);
+          }}
+          onEditPhoto={() => {
+            setPhotoItem(detailItem);
+            setDetailItem(null);
+          }}
+          onDelete={() => {
+            handleDelete(detailItem.id);
+            setDetailItem(null);
+          }}
         />
       )}
 

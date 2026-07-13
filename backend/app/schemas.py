@@ -43,8 +43,11 @@ class ItemCreate(BaseModel):
     thumbnail_url: str | None = None
 
 
-class ItemQuantityUpdate(BaseModel):
-    quantity: int
+class ItemUpdate(BaseModel):
+    name: str | None = None
+    brand: str | None = None
+    barcode: str | None = None
+    quantity: int | None = None
 
 
 class ItemOut(BaseModel):

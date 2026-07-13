@@ -683,6 +683,87 @@ describe("LocationPage — item photo", () => {
   });
 });
 
+describe("LocationPage — item detail modal", () => {
+  const originalCreateObjectURL = URL.createObjectURL;
+
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => "blob:mock-preview");
+    server.use(
+      http.get(api("/locations/:id/items"), () => HttpResponse.json(MOCK_ITEMS))
+    );
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = originalCreateObjectURL;
+  });
+
+  it("opens the detail modal when the item name is clicked", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Nutella");
+
+    await user.click(screen.getByRole("button", { name: "View product details" }));
+    expect(screen.getByText("Product details")).toBeInTheDocument();
+  });
+
+  it("updates the item in the list after saving a change in the detail modal", async () => {
+    server.use(
+      http.patch(api("/locations/:id/items/:itemId"), () =>
+        HttpResponse.json({ ...MOCK_ITEMS[0], name: "Nutella Spread" })
+      )
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Nutella");
+
+    await user.click(screen.getByRole("button", { name: "View product details" }));
+    const nameInput = screen.getByDisplayValue("Nutella");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Nutella Spread");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Product details")).not.toBeInTheDocument()
+    );
+    expect(await screen.findByText("Nutella Spread")).toBeInTheDocument();
+  });
+
+  it("closes the detail modal without changes when Cancel is clicked", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Nutella");
+
+    await user.click(screen.getByRole("button", { name: "View product details" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByText("Product details")).not.toBeInTheDocument();
+  });
+
+  it("switches from the detail modal to the photo modal when the thumbnail is clicked", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Nutella");
+
+    await user.click(screen.getByRole("button", { name: "View product details" }));
+    await user.click(screen.getByRole("button", { name: "Change photo" }));
+
+    expect(screen.queryByText("Product details")).not.toBeInTheDocument();
+    expect(screen.getByText("Product photo")).toBeInTheDocument();
+  });
+
+  it("removes the item from the list when Delete this item is clicked in the detail modal", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Nutella");
+
+    await user.click(screen.getByRole("button", { name: "View product details" }));
+    await user.click(screen.getByRole("button", { name: "Delete this item" }));
+
+    await waitFor(() => expect(screen.queryByText("Nutella")).not.toBeInTheDocument());
+    expect(screen.getByText("This location is empty")).toBeInTheDocument();
+  });
+});
+
 describe("LocationPage — out-of-stock item actions", () => {
   const OUT_OF_STOCK_ITEM = { ...MOCK_ITEMS[0], quantity: 0 };
 

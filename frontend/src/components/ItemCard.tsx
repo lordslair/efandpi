@@ -14,6 +14,7 @@ interface ItemCardProps {
   onQuantityChange?: (newQty: number) => void;
   onDelete?: () => void;
   onEditPhoto?: () => void;
+  onOpenDetail?: () => void;
 }
 
 const FALLBACK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23f3f4f6'/%3E%3Ctext x='40' y='48' font-size='32' text-anchor='middle'%3E🥫%3C/text%3E%3C/svg%3E";
@@ -25,7 +26,9 @@ export default function ItemCard({
   onQuantityChange,
   onDelete,
   onEditPhoto,
+  onOpenDetail,
 }: ItemCardProps) {
+  const clickable = !readOnly && !!onOpenDetail;
   return (
     <div
       className={`flex items-center gap-3 rounded-2xl border p-3 shadow-sm ${
@@ -57,13 +60,27 @@ export default function ItemCard({
       </div>
 
       {/* Name + brand + barcode */}
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-900 text-sm leading-snug truncate">{item.name}</p>
-        {item.brand && (
-          <p className="text-xs text-gray-500 mt-0.5 truncate">{item.brand}</p>
-        )}
-        <p className="text-xs text-gray-400 mt-0.5 font-mono">{item.barcode}</p>
-      </div>
+      {clickable ? (
+        <button
+          onClick={onOpenDetail}
+          className="flex-1 min-w-0 text-left"
+          aria-label="View product details"
+        >
+          <p className="font-semibold text-gray-900 text-sm leading-snug truncate">{item.name}</p>
+          {item.brand && (
+            <p className="text-xs text-gray-500 mt-0.5 truncate">{item.brand}</p>
+          )}
+          <p className="text-xs text-gray-400 mt-0.5 font-mono">{item.barcode}</p>
+        </button>
+      ) : (
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-900 text-sm leading-snug truncate">{item.name}</p>
+          {item.brand && (
+            <p className="text-xs text-gray-500 mt-0.5 truncate">{item.brand}</p>
+          )}
+          <p className="text-xs text-gray-400 mt-0.5 font-mono">{item.barcode}</p>
+        </div>
+      )}
 
       {readOnly ? (
         <span className="w-8 text-center font-bold text-gray-800 text-base tabular-nums flex-shrink-0">

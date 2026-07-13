@@ -106,6 +106,33 @@ describe("ItemCard — edit photo", () => {
   });
 });
 
+describe("ItemCard — open detail", () => {
+  it("does not render the name/brand/barcode as a button when onOpenDetail is not provided", () => {
+    renderCard();
+    expect(screen.queryByRole("button", { name: "View product details" })).not.toBeInTheDocument();
+  });
+
+  it("does not render the name/brand/barcode as a button in readOnly mode", () => {
+    render(<ItemCard item={BASE_ITEM} readOnly onOpenDetail={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "View product details" })).not.toBeInTheDocument();
+  });
+
+  it("calls onOpenDetail when the name/brand/barcode block is clicked", async () => {
+    const user = userEvent.setup();
+    const onOpenDetail = vi.fn();
+    render(
+      <ItemCard
+        item={BASE_ITEM}
+        onQuantityChange={vi.fn()}
+        onDelete={vi.fn()}
+        onOpenDetail={onOpenDetail}
+      />
+    );
+    await user.click(screen.getByRole("button", { name: "View product details" }));
+    expect(onOpenDetail).toHaveBeenCalledOnce();
+  });
+});
+
 describe("ItemCard — quantity controls", () => {
   it("decrease button is enabled when quantity is 1", () => {
     renderCard({ quantity: 1 });

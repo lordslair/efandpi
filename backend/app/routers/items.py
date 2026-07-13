@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth import get_current_user
 from ..database import get_db
 from ..models import Item, Location, User
-from ..schemas import ItemCreate, ItemOut, ItemQuantityUpdate, ProductLookup, ProductSearchResult
+from ..schemas import ItemCreate, ItemOut, ItemUpdate, ProductLookup, ProductSearchResult
 from ..storage import delete_item_image, upload_item_image
 
 router = APIRouter(prefix="/locations/{location_id}/items", tags=["items"])
@@ -161,10 +161,10 @@ async def add_item(
 
 
 @router.patch("/{item_id}", response_model=ItemOut)
-async def update_item_quantity(
+async def update_item(
     location_id: int,
     item_id: int,
-    payload: ItemQuantityUpdate,
+    payload: ItemUpdate,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -177,10 +177,38 @@ async def update_item_quantity(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    if payload.quantity < 0:
-        raise HTTPException(status_code=400, detail="Quantity must be at least 0")
+    if payload.quantity is not None:
+        if payload.quantity < 0:
+            raise HTTPException(status_code=400, detail="Quantity must be at least 0")
+        item.quantity = payload.quantity
 
-    item.quantity = payload.quantity
+    if payload.name is not None:
+        name = payload.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Name cannot be empty")
+        item.name = name
+
+    if payload.brand is not None:
+        item.brand = payload.brand.strip() or None
+
+    if payload.barcode is not None:
+        barcode = payload.barcode.strip()
+        if not barcode:
+            raise HTTPException(status_code=400, detail="Barcode cannot be empty")
+        if barcode != item.barcode:
+            dup = await db.execute(
+                select(Item).where(
+                    Item.barcode == barcode,
+                    Item.location_id == location_id,
+                    Item.id != item_id,
+                )
+            )
+            if dup.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=409, detail="Another item with this barcode already exists"
+                )
+            item.barcode = barcode
+
     await db.commit()
     await db.refresh(item)
     return item
