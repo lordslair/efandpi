@@ -34,6 +34,27 @@ vi.mock("../src/components/ExportButton", () => ({
   default: () => <button>Export</button>,
 }));
 
+// ImageCropModal has its own dedicated test suite (ImageCropModal.test.tsx);
+// here we only care that selecting a photo routes through it before the final
+// file is used, so it's stubbed with a minimal confirm/cancel UI.
+vi.mock("../src/components/ImageCropModal", () => ({
+  default: ({
+    file,
+    onCancel,
+    onComplete,
+  }: {
+    file: File;
+    onCancel: () => void;
+    onComplete: (f: File) => void;
+  }) => (
+    <div>
+      <p>Mock crop modal</p>
+      <button onClick={() => onComplete(file)}>Confirm crop (mock)</button>
+      <button onClick={onCancel}>Cancel crop (mock)</button>
+    </div>
+  ),
+}));
+
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => ({
   ...(await vi.importActual<typeof import("react-router-dom")>("react-router-dom")),
@@ -533,6 +554,7 @@ describe("LocationPage — scan confirm photo", () => {
     await user.type(screen.getByPlaceholderText("Product name (required)"), "Juice");
     const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
     await user.upload(screen.getByLabelText("Custom photo (optional)"), file);
+    await user.click(screen.getByRole("button", { name: "Confirm crop (mock)" }));
     await user.click(screen.getByRole("button", { name: "Add to list" }));
 
     await waitFor(() => expect(uploadedItemId).toBe(String(MOCK_ITEMS[0].id)));
@@ -558,12 +580,46 @@ describe("LocationPage — scan confirm photo", () => {
     await user.type(screen.getByPlaceholderText("Product name (required)"), "Juice");
     const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
     await user.upload(screen.getByLabelText("Custom photo (optional)"), file);
+    await user.click(screen.getByRole("button", { name: "Confirm crop (mock)" }));
     await user.click(screen.getByRole("button", { name: "Add to list" }));
 
     await waitFor(() =>
       expect(screen.queryByText("Unknown product")).not.toBeInTheDocument()
     );
     expect(await screen.findByText("Juice")).toBeInTheDocument();
+  });
+
+  it("opens the crop modal when a photo is chosen, without uploading anything if cancelled", async () => {
+    let uploadCalled = false;
+    server.use(
+      http.post(api("/locations/:id/items/:itemId/image"), () => {
+        uploadCalled = true;
+        return HttpResponse.json({ ...MOCK_ITEMS[0], custom_image_url: "https://example.com/custom.jpg" });
+      })
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("This location is empty");
+
+    await user.click(screen.getByRole("button", { name: /Scan Barcode/i }));
+    await user.click(screen.getByRole("button", { name: "Trigger Scan" }));
+    await screen.findByText("Unknown product");
+
+    await user.type(screen.getByPlaceholderText("Product name (required)"), "Juice");
+    const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText("Custom photo (optional)"), file);
+
+    expect(screen.getByText("Mock crop modal")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel crop (mock)" }));
+    expect(screen.queryByText("Mock crop modal")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add to list" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Unknown product")).not.toBeInTheDocument()
+    );
+    expect(await screen.findByText("Juice")).toBeInTheDocument();
+    expect(uploadCalled).toBe(false);
   });
 });
 
@@ -603,6 +659,7 @@ describe("LocationPage — item photo", () => {
     await user.click(screen.getByRole("button", { name: "Edit photo" }));
     const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
     await user.upload(screen.getByLabelText("Product photo"), file);
+    await user.click(screen.getByRole("button", { name: "Confirm crop (mock)" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>

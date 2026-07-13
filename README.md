@@ -100,6 +100,7 @@ Both flows use the same inventory rules: adding an item with an existing barcode
 You can attach your own photo to any item — useful for products Open Food Facts doesn't have, or to replace an incorrect auto-matched thumbnail. A custom photo, once set, always takes priority over the Open Food Facts thumbnail.
 
 - Tap the camera icon on an item's thumbnail (or attach a photo right after adding a new item) to upload or replace its photo.
+- After picking a photo, a crop step lets you frame it to a square (1:1) — pinch/scroll to zoom, drag to reposition. Cropping is optional: **Skip** uploads the original file as-is, **Use Photo** uploads the cropped square.
 - Photos are stored in an S3-compatible bucket, organized as `<sha256(your email)>/<item barcode>.<ext>` — one folder per account, one file per barcode.
 - The bucket must be pre-created and configured for **public read access** by the operator (e.g. the OVH Object Storage container "Public" toggle, or an equivalent bucket policy) — the app stores and links to plain public URLs, it does not sign or proxy requests.
 - Requires the `S3_*` environment variables documented above; without them configured, photo upload will fail (existing Open Food Facts thumbnails are unaffected).
@@ -162,6 +163,7 @@ efandpi/
         ├── api/client.ts    # Typed fetch wrapper for all API calls
         ├── hooks/useAuth.tsx # AuthContext + JWT localStorage
         ├── router.ts        # React Router v7 future flags
+        ├── utils/cropImage.ts # Canvas utility: bakes a crop selection into a File
         ├── pages/
         │   ├── LoginPage.tsx
         │   ├── HomePage.tsx          # Location selector grid
@@ -174,6 +176,7 @@ efandpi/
             ├── ShareModal.tsx        # Copy/regenerate share link modal
             ├── ItemCard.tsx          # Thumbnail, name, qty controls, delete (+ readOnly mode)
             ├── ItemPhotoModal.tsx    # Attach/replace/remove an item's custom photo
+            ├── ImageCropModal.tsx    # Square (1:1) crop step, react-easy-crop, skippable
             └── ExportButton.tsx      # html-to-image PNG download
 ```
 
@@ -323,6 +326,7 @@ See `frontend/TESTING.md` for the full testing guide (MSW, patterns, configurati
 | Database | SQLite (file in `./data/`) |
 | Frontend | React 18, Vite, TypeScript, Tailwind CSS v4 |
 | Barcode scanning | `react-zxing` (ZXing-C++ via WebAssembly) |
+| Image cropping | `react-easy-crop` + a canvas utility to bake the crop into a `File` |
 | Image export | `html-to-image` |
 | PWA | `vite-plugin-pwa` (Workbox service worker) |
 | Serving | nginx (static on port 3000 + `/api` reverse proxy) |

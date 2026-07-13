@@ -40,6 +40,32 @@ async def test_upload_image_sets_custom_image_url(
 
 
 @pytest.mark.asyncio
+@patch("app.routers.items.delete_item_image")
+@patch("app.routers.items.upload_item_image", new_callable=AsyncMock)
+async def test_replacing_a_photo_never_deletes_the_just_uploaded_image(
+    mock_upload: AsyncMock, mock_delete, client: AsyncClient, auth_headers: dict, location: dict
+):
+    # The object key is deterministic (same user + barcode), so the URL only
+    # differs by its cache-busting query param between uploads. Replacing a
+    # photo must never call delete on that (still-in-use) key.
+    mock_upload.side_effect = [
+        "https://s3.example.com/bucket/hash/1111111111111.jpg?v=aaaaaaaaaa",
+        "https://s3.example.com/bucket/hash/1111111111111.jpg?v=bbbbbbbbbb",
+    ]
+    item = await _add_item(client, auth_headers, location["id"])
+
+    for _ in range(2):
+        resp = await client.post(
+            f"/locations/{location['id']}/items/{item['id']}/image",
+            headers=auth_headers,
+            files={"file": ("photo.jpg", BytesIO(b"x"), "image/jpeg")},
+        )
+        assert resp.status_code == 200
+
+    mock_delete.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_upload_image_missing_item_returns_404(client: AsyncClient, auth_headers: dict, location: dict):
     resp = await client.post(
         f"/locations/{location['id']}/items/999999/image",

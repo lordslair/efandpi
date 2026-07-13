@@ -10,6 +10,27 @@ import type { Item } from "../src/api/client";
 
 const api = (p: string) => `${TEST_API_ORIGIN}${p}`;
 
+// ImageCropModal has its own dedicated test suite (ImageCropModal.test.tsx);
+// here we only care that selecting a photo routes through it before the final
+// file is used, so it's stubbed with a minimal confirm/cancel UI.
+vi.mock("../src/components/ImageCropModal", () => ({
+  default: ({
+    file,
+    onCancel,
+    onComplete,
+  }: {
+    file: File;
+    onCancel: () => void;
+    onComplete: (f: File) => void;
+  }) => (
+    <div>
+      <p>Mock crop modal</p>
+      <button onClick={() => onComplete(file)}>Confirm crop (mock)</button>
+      <button onClick={onCancel}>Cancel crop (mock)</button>
+    </div>
+  ),
+}));
+
 function renderModal() {
   const onClose = vi.fn();
   const onAdded = vi.fn();
@@ -22,6 +43,13 @@ async function searchAndSelect(user: ReturnType<typeof userEvent.setup>, query =
   await user.click(screen.getByRole("button", { name: /Search Open Food Facts/i }));
   await screen.findByText("Nutella");
   await user.click(screen.getByRole("button", { name: /Nutella/i }));
+}
+
+async function choosePhoto(user: ReturnType<typeof userEvent.setup>) {
+  const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
+  await user.upload(screen.getByLabelText("Custom photo (optional)"), file);
+  // Selecting a file opens the (mocked) crop modal; confirm through it.
+  await user.click(screen.getByRole("button", { name: "Confirm crop (mock)" }));
 }
 
 beforeEach(() => {
@@ -125,14 +153,41 @@ describe("ManualImportModal — add without a photo", () => {
   });
 });
 
+describe("ManualImportModal — cropping a photo", () => {
+  it("opens the crop modal instead of immediately attaching the file", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await searchAndSelect(user);
+    const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText("Custom photo (optional)"), file);
+
+    expect(screen.getByText("Mock crop modal")).toBeInTheDocument();
+    // The whole modal (and its Add button) is swapped out while cropping
+    expect(screen.queryByRole("button", { name: /^Add$/ })).not.toBeInTheDocument();
+  });
+
+  it("returns to the modal, photo unset, when the crop step is cancelled", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await searchAndSelect(user);
+    const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText("Custom photo (optional)"), file);
+    await user.click(screen.getByRole("button", { name: "Cancel crop (mock)" }));
+
+    expect(screen.queryByText("Mock crop modal")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Add$/ })).toBeEnabled();
+  });
+});
+
 describe("ManualImportModal — add with a photo", () => {
   it("uploads the chosen photo after creating the item", async () => {
     const user = userEvent.setup();
     const { onClose, onAdded } = renderModal();
 
     await searchAndSelect(user);
-    const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
-    await user.upload(screen.getByLabelText("Custom photo (optional)"), file);
+    await choosePhoto(user);
     await user.click(screen.getByRole("button", { name: /^Add$/ }));
 
     await waitFor(() => expect(onAdded).toHaveBeenCalled());
@@ -151,8 +206,7 @@ describe("ManualImportModal — add with a photo", () => {
     const { onClose, onAdded } = renderModal();
 
     await searchAndSelect(user);
-    const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
-    await user.upload(screen.getByLabelText("Custom photo (optional)"), file);
+    await choosePhoto(user);
     await user.click(screen.getByRole("button", { name: /^Add$/ }));
 
     await waitFor(() => expect(onAdded).toHaveBeenCalled());

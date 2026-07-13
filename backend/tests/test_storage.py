@@ -1,4 +1,5 @@
 import hashlib
+import re
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
@@ -80,7 +81,34 @@ async def test_upload_item_image_uploads_and_returns_public_url():
     assert call_kwargs["Body"] == b"fake-bytes"
     expected_folder = hashlib.sha256(b"user@example.com").hexdigest()
     assert call_kwargs["Key"] == f"{expected_folder}/1234567890123.jpg"
-    assert url == f"https://efandpi.s3.gra.io.cloud.ovh.net/{expected_folder}/1234567890123.jpg"
+    # A cache-busting query param is appended so replacing a photo (same key)
+    # is never served stale from a browser/CDN cache — see the delete-on-
+    # replace fix in routers/items.py for why the key itself must NOT change.
+    assert re.fullmatch(
+        rf"https://efandpi\.s3\.gra\.io\.cloud\.ovh\.net/{expected_folder}/1234567890123\.jpg\?v=[0-9a-f]{{10}}",
+        url,
+    )
+
+
+@pytest.mark.asyncio
+async def test_upload_item_image_cache_busting_param_differs_between_uploads():
+    mock_client = MagicMock()
+    with patch.object(storage, "_get_client", return_value=mock_client), patch.object(
+        storage, "S3_ENDPOINT_URL", "https://s3.gra.io.cloud.ovh.net"
+    ), patch.object(storage, "S3_BUCKET", "efandpi"), patch.object(
+        storage, "S3_PUBLIC_BASE_URL", None
+    ):
+        url1 = await storage.upload_item_image(
+            "user@example.com", "1234567890123", _upload_file(b"first", "image/jpeg")
+        )
+        url2 = await storage.upload_item_image(
+            "user@example.com", "1234567890123", _upload_file(b"second", "image/jpeg")
+        )
+
+    # Same object key (same user + barcode)...
+    assert url1.split("?")[0] == url2.split("?")[0]
+    # ...but a different URL overall, so the browser treats it as a new resource.
+    assert url1 != url2
 
 
 def test_delete_item_image_parses_virtual_hosted_style_url():
@@ -89,6 +117,15 @@ def test_delete_item_image_parses_virtual_hosted_style_url():
         storage, "S3_ENDPOINT_URL", "https://s3.gra.io.cloud.ovh.net"
     ), patch.object(storage, "S3_BUCKET", "efandpi"):
         storage.delete_item_image("https://efandpi.s3.gra.io.cloud.ovh.net/abc/1.jpg")
+    mock_client.delete_object.assert_called_once_with(Bucket="efandpi", Key="abc/1.jpg")
+
+
+def test_delete_item_image_strips_cache_busting_query_param():
+    mock_client = MagicMock()
+    with patch.object(storage, "_get_client", return_value=mock_client), patch.object(
+        storage, "S3_ENDPOINT_URL", "https://s3.gra.io.cloud.ovh.net"
+    ), patch.object(storage, "S3_BUCKET", "efandpi"):
+        storage.delete_item_image("https://efandpi.s3.gra.io.cloud.ovh.net/abc/1.jpg?v=deadbeef12")
     mock_client.delete_object.assert_called_once_with(Bucket="efandpi", Key="abc/1.jpg")
 
 

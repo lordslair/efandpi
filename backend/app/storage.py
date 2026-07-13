@@ -1,5 +1,6 @@
 import hashlib
 import os
+import uuid
 from urllib.parse import urlparse
 
 import boto3
@@ -101,7 +102,12 @@ async def upload_item_image(user_email: str, barcode: str, file: UploadFile) -> 
             detail="Failed to upload image",
         ) from exc
 
-    return _public_url(key)
+    # The object key is deterministic (same user + barcode), so replacing a
+    # photo would otherwise reuse the exact same URL — and browsers/CDNs will
+    # happily keep serving the previously cached (stale) image at that URL.
+    # A cache-busting query param forces every upload to be treated as a new
+    # resource. _key_from_url() strips the query when resolving back to a key.
+    return f"{_public_url(key)}?v={uuid.uuid4().hex[:10]}"
 
 
 def delete_item_image(url: str) -> None:

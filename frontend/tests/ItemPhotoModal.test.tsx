@@ -10,6 +10,27 @@ import type { Item } from "../src/api/client";
 
 const api = (p: string) => `${TEST_API_ORIGIN}${p}`;
 
+// ImageCropModal has its own dedicated test suite (ImageCropModal.test.tsx);
+// here we only care that selecting a file routes through it before the final
+// file is used, so it's stubbed with a minimal confirm/cancel UI.
+vi.mock("../src/components/ImageCropModal", () => ({
+  default: ({
+    file,
+    onCancel,
+    onComplete,
+  }: {
+    file: File;
+    onCancel: () => void;
+    onComplete: (f: File) => void;
+  }) => (
+    <div>
+      <p>Mock crop modal</p>
+      <button onClick={() => onComplete(file)}>Confirm crop (mock)</button>
+      <button onClick={onCancel}>Cancel crop (mock)</button>
+    </div>
+  ),
+}));
+
 const BASE_ITEM: Item = {
   id: 1,
   barcode: "3017620422003",
@@ -44,6 +65,8 @@ function renderModal(itemOverrides: Partial<Item> = {}) {
 async function selectPhoto(user: ReturnType<typeof userEvent.setup>) {
   const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
   await user.upload(screen.getByLabelText("Product photo"), file);
+  // Selecting a file opens the (mocked) crop modal; confirm through it.
+  await user.click(screen.getByRole("button", { name: "Confirm crop (mock)" }));
   return file;
 }
 
@@ -87,7 +110,19 @@ describe("ItemPhotoModal — rendering", () => {
 });
 
 describe("ItemPhotoModal — choosing a file", () => {
-  it("enables Save and swaps the preview once a file is chosen", async () => {
+  it("opens the crop modal instead of immediately updating the preview", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText("Product photo"), file);
+
+    expect(screen.getByText("Mock crop modal")).toBeInTheDocument();
+    // The whole photo modal (and its Save button) is swapped out while cropping
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+
+  it("enables Save and swaps the preview once cropping is confirmed", async () => {
     const user = userEvent.setup();
     renderModal();
 
@@ -95,6 +130,18 @@ describe("ItemPhotoModal — choosing a file", () => {
 
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
     expect(getPreviewImg()).toHaveAttribute("src", "blob:mock-preview");
+  });
+
+  it("leaves the photo unchanged when the crop step is cancelled", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    const file = new File(["fake-bytes"], "photo.jpg", { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText("Product photo"), file);
+    await user.click(screen.getByRole("button", { name: "Cancel crop (mock)" }));
+
+    expect(screen.queryByText("Mock crop modal")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 });
 

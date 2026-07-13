@@ -8,6 +8,7 @@ import ShareModal from "../components/ShareModal";
 import ItemCard from "../components/ItemCard";
 import ExportButton from "../components/ExportButton";
 import ItemPhotoModal from "../components/ItemPhotoModal";
+import ImageCropModal from "../components/ImageCropModal";
 
 interface ScanConfirm {
   barcode: string;
@@ -34,6 +35,8 @@ export default function LocationPage() {
   const [manualName, setManualName] = useState("");
   const [confirmQty, setConfirmQty] = useState(1);
   const [confirmPhotoFile, setConfirmPhotoFile] = useState<File | null>(null);
+  const [pendingConfirmPhotoFile, setPendingConfirmPhotoFile] = useState<File | null>(null);
+  const [confirmPhotoInputKey, setConfirmPhotoInputKey] = useState(0);
   const [photoItem, setPhotoItem] = useState<api.Item | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +81,7 @@ export default function LocationPage() {
       setManualName(result.name ?? "");
       setConfirmQty(1);
       setConfirmPhotoFile(null);
+      setPendingConfirmPhotoFile(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Lookup failed");
     } finally {
@@ -316,10 +320,14 @@ export default function LocationPage() {
                 Custom photo (optional)
               </label>
               <input
+                key={confirmPhotoInputKey}
                 type="file"
                 aria-label="Custom photo (optional)"
                 accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => setConfirmPhotoFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  if (f) setPendingConfirmPhotoFile(f);
+                }}
                 className="input-field"
               />
             </div>
@@ -353,6 +361,7 @@ export default function LocationPage() {
                 onClick={() => {
                   setScanConfirm(null);
                   setConfirmPhotoFile(null);
+                  setPendingConfirmPhotoFile(null);
                 }}
               >
                 Cancel
@@ -367,6 +376,20 @@ export default function LocationPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {pendingConfirmPhotoFile && (
+        <ImageCropModal
+          file={pendingConfirmPhotoFile}
+          onCancel={() => {
+            setPendingConfirmPhotoFile(null);
+            setConfirmPhotoInputKey((k) => k + 1);
+          }}
+          onComplete={(croppedFile) => {
+            setConfirmPhotoFile(croppedFile);
+            setPendingConfirmPhotoFile(null);
+          }}
+        />
       )}
     </div>
   );

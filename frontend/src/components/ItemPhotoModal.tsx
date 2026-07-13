@@ -1,5 +1,6 @@
 import { useState } from "react";
 import * as api from "../api/client";
+import ImageCropModal from "./ImageCropModal";
 
 interface ItemPhotoModalProps {
   locationId: number;
@@ -16,13 +17,25 @@ export default function ItemPhotoModal({
 }: ItemPhotoModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [inputKey, setInputKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
-    setFile(f);
-    setPreview(f ? URL.createObjectURL(f) : null);
+    if (f) setPendingFile(f);
+  }
+
+  function handleCropComplete(croppedFile: File) {
+    setFile(croppedFile);
+    setPreview(URL.createObjectURL(croppedFile));
+    setPendingFile(null);
+  }
+
+  function handleCropCancel() {
+    setPendingFile(null);
+    setInputKey((k) => k + 1);
   }
 
   async function handleUpload() {
@@ -54,6 +67,16 @@ export default function ItemPhotoModal({
     }
   }
 
+  if (pendingFile) {
+    return (
+      <ImageCropModal
+        file={pendingFile}
+        onCancel={handleCropCancel}
+        onComplete={handleCropComplete}
+      />
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end justify-center z-50 p-4">
       <div className="card w-full max-w-sm mb-safe">
@@ -68,6 +91,7 @@ export default function ItemPhotoModal({
         </div>
 
         <input
+          key={inputKey}
           type="file"
           aria-label="Product photo"
           accept="image/jpeg,image/png,image/webp"

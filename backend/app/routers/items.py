@@ -223,15 +223,13 @@ async def upload_item_photo(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    old_url = item.custom_image_url
-    new_url = await upload_item_image(current_user.email, item.barcode, file)
-
-    item.custom_image_url = new_url
+    # The object key is deterministic per item, so put_object() above always
+    # overwrites the same object in place — no separate delete of the "old"
+    # image is needed (and the old/new URLs now differ only by a cache-busting
+    # query param, so comparing them would incorrectly look like a new key).
+    item.custom_image_url = await upload_item_image(current_user.email, item.barcode, file)
     await db.commit()
     await db.refresh(item)
-
-    if old_url and old_url != new_url:
-        delete_item_image(old_url)
 
     return item
 

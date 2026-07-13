@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import * as api from "../api/client";
+import ImageCropModal from "./ImageCropModal";
 
 const FALLBACK =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23f3f4f6'/%3E%3Ctext x='40' y='48' font-size='32' text-anchor='middle'%3E🥫%3C/text%3E%3C/svg%3E";
@@ -23,6 +24,8 @@ export default function ManualImportModal({
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
+  const [photoInputKey, setPhotoInputKey] = useState(0);
 
   async function handleSearch(e: FormEvent) {
     e.preventDefault();
@@ -72,6 +75,22 @@ export default function ManualImportModal({
     } finally {
       setAdding(false);
     }
+  }
+
+  if (pendingPhotoFile) {
+    return (
+      <ImageCropModal
+        file={pendingPhotoFile}
+        onCancel={() => {
+          setPendingPhotoFile(null);
+          setPhotoInputKey((k) => k + 1);
+        }}
+        onComplete={(croppedFile) => {
+          setPhotoFile(croppedFile);
+          setPendingPhotoFile(null);
+        }}
+      />
+    );
   }
 
   return (
@@ -159,10 +178,14 @@ export default function ManualImportModal({
               Custom photo (optional)
             </label>
             <input
+              key={photoInputKey}
               type="file"
               aria-label="Custom photo (optional)"
               accept="image/jpeg,image/png,image/webp"
-              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                if (f) setPendingPhotoFile(f);
+              }}
               className="input-field"
             />
           </div>
