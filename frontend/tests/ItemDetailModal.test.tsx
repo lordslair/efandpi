@@ -174,6 +174,79 @@ describe("ItemDetailModal — save flow", () => {
   });
 });
 
+describe("ItemDetailModal — sync across locations", () => {
+  it("does not show the Sync all button when the item is unique", async () => {
+    renderModal();
+    await waitFor(() => expect(screen.queryByText(/Also in/)).not.toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Sync all" })).not.toBeInTheDocument();
+  });
+
+  it("shows the Sync all button and the other locations when duplicates exist", async () => {
+    server.use(
+      http.get(api("/items/by-barcode/:barcode"), () =>
+        HttpResponse.json([
+          { location_id: 2, location_name: "Pantry" },
+          { location_id: 3, location_name: "Garage" },
+        ])
+      )
+    );
+    renderModal();
+
+    expect(await screen.findByText("Also in Pantry, Garage")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sync all" })).toBeInTheDocument();
+  });
+
+  it("PATCHes with sync: true and reports the updated item on success", async () => {
+    let patchedBody: unknown;
+    server.use(
+      http.get(api("/items/by-barcode/:barcode"), () =>
+        HttpResponse.json([{ location_id: 2, location_name: "Pantry" }])
+      ),
+      http.patch(api("/locations/:id/items/:itemId"), async ({ request }) => {
+        patchedBody = await request.json();
+        return HttpResponse.json({ ...BASE_ITEM, name: "Nutella Spread" });
+      })
+    );
+    const user = userEvent.setup();
+    const { onClose, onUpdated } = renderModal();
+
+    await screen.findByRole("button", { name: "Sync all" });
+    const nameInput = screen.getByDisplayValue("Nutella");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Nutella Spread");
+    await user.click(screen.getByRole("button", { name: "Sync all" }));
+
+    await waitFor(() => expect(onUpdated).toHaveBeenCalled());
+    expect(patchedBody).toEqual({
+      name: "Nutella Spread",
+      brand: "Ferrero",
+      barcode: "3017620422003",
+      quantity: 3,
+      sync: true,
+    });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("shows an error and keeps the modal open when the sync request fails", async () => {
+    server.use(
+      http.get(api("/items/by-barcode/:barcode"), () =>
+        HttpResponse.json([{ location_id: 2, location_name: "Pantry" }])
+      ),
+      http.patch(api("/locations/:id/items/:itemId"), () =>
+        HttpResponse.json({ detail: "Item not found" }, { status: 404 })
+      )
+    );
+    const user = userEvent.setup();
+    const { onClose, onUpdated } = renderModal();
+
+    await user.click(await screen.findByRole("button", { name: "Sync all" }));
+
+    expect(await screen.findByText("Item not found")).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onUpdated).not.toHaveBeenCalled();
+  });
+});
+
 describe("ItemDetailModal — photo and delete", () => {
   it("calls onEditPhoto when the thumbnail is clicked", async () => {
     const user = userEvent.setup();

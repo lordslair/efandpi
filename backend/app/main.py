@@ -43,6 +43,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(locations.router)
 app.include_router(items.router)
+app.include_router(items.sync_router)
 app.include_router(public.router)
 
 

@@ -751,6 +751,30 @@ describe("LocationPage — item detail modal", () => {
     expect(screen.getByText("Product photo")).toBeInTheDocument();
   });
 
+  it("shows the Sync all button and updates the current item when it's in other locations", async () => {
+    server.use(
+      http.get(api("/items/by-barcode/:barcode"), () =>
+        HttpResponse.json([{ location_id: 2, location_name: "Pantry" }])
+      ),
+      http.patch(api("/locations/:id/items/:itemId"), () =>
+        HttpResponse.json({ ...MOCK_ITEMS[0], name: "Nutella Spread" })
+      )
+    );
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Nutella");
+
+    await user.click(screen.getByRole("button", { name: "View product details" }));
+    await screen.findByText("Also in Pantry");
+
+    await user.click(screen.getByRole("button", { name: "Sync all" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Product details")).not.toBeInTheDocument()
+    );
+    expect(await screen.findByText("Nutella Spread")).toBeInTheDocument();
+  });
+
   it("removes the item from the list when Delete this item is clicked in the detail modal", async () => {
     const user = userEvent.setup();
     renderLocationPage(1, { name: "Fridge" });

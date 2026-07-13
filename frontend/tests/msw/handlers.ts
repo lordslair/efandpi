@@ -130,4 +130,6 @@ export const handlers = [
   http.delete(api("/locations/:id/items/:itemId/image"), () =>
     HttpResponse.json({ ...MOCK_ITEM, custom_image_url: null })
   ),
+
+  http.get(api("/items/by-barcode/:barcode"), () => HttpResponse.json([])),
 ];

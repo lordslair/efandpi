@@ -8,10 +8,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth import get_current_user
 from ..database import get_db
 from ..models import Item, Location, User
-from ..schemas import ItemCreate, ItemOut, ItemUpdate, ProductLookup, ProductSearchResult
+from ..schemas import (
+    ItemCreate,
+    ItemLocationSummary,
+    ItemOut,
+    ItemUpdate,
+    ProductLookup,
+    ProductSearchResult,
+)
 from ..storage import delete_item_image, upload_item_image
 
 router = APIRouter(prefix="/locations/{location_id}/items", tags=["items"])
+
+# Not scoped to a single location: used to find/sync the same product (by
+# barcode) across every location the current user owns.
+sync_router = APIRouter(prefix="/items", tags=["items"])
 
 _off_api = openfoodfacts.API(user_agent="efandpi/1.0")
 
@@ -211,7 +222,47 @@ async def update_item(
 
     await db.commit()
     await db.refresh(item)
+
+    if payload.sync:
+        siblings = await db.execute(
+            select(Item)
+            .join(Location, Item.location_id == Location.id)
+            .where(
+                Location.user_id == current_user.id,
+                Item.barcode == item.barcode,
+                Item.id != item.id,
+            )
+        )
+        for sibling in siblings.scalars().all():
+            sibling.name = item.name
+            sibling.brand = item.brand
+            sibling.thumbnail_url = item.thumbnail_url
+            sibling.custom_image_url = item.custom_image_url
+        await db.commit()
+
     return item
+
+
+@sync_router.get("/by-barcode/{barcode}", response_model=list[ItemLocationSummary])
+async def get_item_locations(
+    barcode: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    exclude_item_id: int | None = None,
+):
+    query = (
+        select(Item.location_id, Location.name)
+        .join(Location, Item.location_id == Location.id)
+        .where(Location.user_id == current_user.id, Item.barcode == barcode)
+    )
+    if exclude_item_id is not None:
+        query = query.where(Item.id != exclude_item_id)
+
+    result = await db.execute(query)
+    return [
+        ItemLocationSummary(location_id=location_id, location_name=location_name)
+        for location_id, location_name in result.all()
+    ]
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as api from "../api/client";
 
 interface ItemDetailModalProps {
@@ -26,6 +26,14 @@ export default function ItemDetailModal({
   const [quantity, setQuantity] = useState(item.quantity);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicateLocations, setDuplicateLocations] = useState<api.ItemLocationSummary[]>([]);
+
+  useEffect(() => {
+    api
+      .getItemLocations(item.barcode, item.id)
+      .then(setDuplicateLocations)
+      .catch(() => setDuplicateLocations([]));
+  }, [item.barcode, item.id]);
 
   const dirty =
     name.trim() !== item.name ||
@@ -48,6 +56,27 @@ export default function ItemDetailModal({
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSyncAll() {
+    if (!name.trim() || !barcode.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await api.updateItem(locationId, item.id, {
+        name: name.trim(),
+        brand: brand.trim() || null,
+        barcode: barcode.trim(),
+        quantity,
+        sync: true,
+      });
+      onUpdated(updated);
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to sync");
     } finally {
       setSaving(false);
     }
@@ -129,6 +158,21 @@ export default function ItemDetailModal({
             placeholder="Barcode"
           />
         </div>
+
+        {duplicateLocations.length > 0 && (
+          <div className="bg-brand-50 border border-brand-100 rounded-xl px-4 py-3 mb-3">
+            <p className="text-xs text-gray-600 mb-2">
+              Also in {duplicateLocations.map((l) => l.location_name).join(", ")}
+            </p>
+            <button
+              className="btn-secondary w-full text-sm py-2"
+              onClick={handleSyncAll}
+              disabled={!name.trim() || !barcode.trim() || saving}
+            >
+              {saving ? "Syncing…" : "Sync all"}
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-3">

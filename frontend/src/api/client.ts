@@ -163,6 +163,7 @@ export interface ItemUpdate {
   brand?: string | null;
   barcode?: string;
   quantity?: number;
+  sync?: boolean;
 }
 
 export async function updateItem(
@@ -174,6 +175,19 @@ export async function updateItem(
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+export interface ItemLocationSummary {
+  location_id: number;
+  location_name: string;
+}
+
+export async function getItemLocations(
+  barcode: string,
+  excludeItemId?: number
+): Promise<ItemLocationSummary[]> {
+  const query = excludeItemId != null ? `?exclude_item_id=${excludeItemId}` : "";
+  return request(`/items/by-barcode/${encodeURIComponent(barcode)}${query}`);
 }
 
 export async function deleteItem(locationId: number, itemId: number): Promise<void> {

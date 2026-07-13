@@ -253,3 +253,258 @@ async def test_update_quantity_cannot_be_negative(
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "Quantity must be at least 0"
+
+
+@pytest.mark.asyncio
+async def test_by_barcode_returns_empty_when_item_is_unique(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    await client.post(
+        f"/locations/{location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "quantity": 1},
+        headers=auth_headers,
+    )
+
+    response = await client.get(
+        "/items/by-barcode/1112223334445",
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json() == [{"location_id": location["id"], "location_name": "Pantry"}]
+
+
+@pytest.mark.asyncio
+async def test_by_barcode_can_exclude_the_source_item(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    create = await client.post(
+        f"/locations/{location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "quantity": 1},
+        headers=auth_headers,
+    )
+    item_id = create.json()["id"]
+
+    response = await client.get(
+        "/items/by-barcode/1112223334445",
+        params={"exclude_item_id": item_id},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.asyncio
+async def test_by_barcode_lists_other_locations_sharing_the_barcode(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    other_location = (
+        await client.post(
+            "/locations", json={"name": "Garage"}, headers=auth_headers
+        )
+    ).json()
+
+    source = await client.post(
+        f"/locations/{location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "quantity": 1},
+        headers=auth_headers,
+    )
+    await client.post(
+        f"/locations/{other_location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "quantity": 4},
+        headers=auth_headers,
+    )
+
+    response = await client.get(
+        "/items/by-barcode/1112223334445",
+        params={"exclude_item_id": source.json()["id"]},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json() == [
+        {"location_id": other_location["id"], "location_name": "Garage"}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_by_barcode_requires_auth(client: AsyncClient, location: dict):
+    response = await client.get("/items/by-barcode/1112223334445")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_by_barcode_does_not_leak_other_users_items(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    await client.post(
+        f"/locations/{location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "quantity": 1},
+        headers=auth_headers,
+    )
+
+    other_register = await client.post(
+        "/auth/register",
+        json={"email": "other@example.com", "password": "secret123"},
+    )
+    assert other_register.status_code == 201
+    other_token = (
+        await client.post(
+            "/auth/token",
+            data={"username": "other@example.com", "password": "secret123"},
+        )
+    ).json()["access_token"]
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+
+    other_location = (
+        await client.post("/locations", json={"name": "Other"}, headers=other_headers)
+    ).json()
+    await client.post(
+        f"/locations/{other_location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "quantity": 9},
+        headers=other_headers,
+    )
+
+    response = await client.get(
+        "/items/by-barcode/1112223334445",
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["location_name"] == "Pantry"
+
+
+@pytest.mark.asyncio
+async def test_sync_propagates_name_brand_and_images_but_not_quantity(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    other_location = (
+        await client.post("/locations", json={"name": "Garage"}, headers=auth_headers)
+    ).json()
+
+    source = await client.post(
+        f"/locations/{location['id']}/items",
+        json={
+            "barcode": "1112223334445",
+            "name": "Rice",
+            "quantity": 1,
+            "thumbnail_url": "https://example.com/old.jpg",
+        },
+        headers=auth_headers,
+    )
+    sibling = await client.post(
+        f"/locations/{other_location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Riz (stale name)", "quantity": 7},
+        headers=auth_headers,
+    )
+
+    update = await client.patch(
+        f"/locations/{location['id']}/items/{source.json()['id']}",
+        json={
+            "name": "Rice (Basmati)",
+            "brand": "Uncle Ben's",
+            "quantity": 2,
+            "sync": True,
+        },
+        headers=auth_headers,
+    )
+    assert update.status_code == 200
+    assert update.json()["quantity"] == 2
+
+    listing = await client.get(
+        f"/locations/{other_location['id']}/items", headers=auth_headers
+    )
+    synced = next(i for i in listing.json() if i["id"] == sibling.json()["id"])
+    assert synced["name"] == "Rice (Basmati)"
+    assert synced["brand"] == "Uncle Ben's"
+    # Quantity is location-specific and must not be overwritten by sync
+    assert synced["quantity"] == 7
+
+
+@pytest.mark.asyncio
+async def test_update_without_sync_does_not_propagate(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    other_location = (
+        await client.post("/locations", json={"name": "Garage"}, headers=auth_headers)
+    ).json()
+
+    source = await client.post(
+        f"/locations/{location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "quantity": 1},
+        headers=auth_headers,
+    )
+    sibling = await client.post(
+        f"/locations/{other_location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Riz", "quantity": 7},
+        headers=auth_headers,
+    )
+
+    await client.patch(
+        f"/locations/{location['id']}/items/{source.json()['id']}",
+        json={"name": "Rice (Basmati)"},
+        headers=auth_headers,
+    )
+
+    listing = await client.get(
+        f"/locations/{other_location['id']}/items", headers=auth_headers
+    )
+    synced = next(i for i in listing.json() if i["id"] == sibling.json()["id"])
+    assert synced["name"] == "Riz"
+
+
+@pytest.mark.asyncio
+async def test_sync_does_not_affect_other_users_items(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    source = await client.post(
+        f"/locations/{location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "quantity": 1},
+        headers=auth_headers,
+    )
+
+    other_register = await client.post(
+        "/auth/register",
+        json={"email": "other2@example.com", "password": "secret123"},
+    )
+    assert other_register.status_code == 201
+    other_token = (
+        await client.post(
+            "/auth/token",
+            data={"username": "other2@example.com", "password": "secret123"},
+        )
+    ).json()["access_token"]
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+
+    other_location = (
+        await client.post("/locations", json={"name": "Other"}, headers=other_headers)
+    ).json()
+    other_item = await client.post(
+        f"/locations/{other_location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Riz", "quantity": 9},
+        headers=other_headers,
+    )
+
+    await client.patch(
+        f"/locations/{location['id']}/items/{source.json()['id']}",
+        json={"name": "Rice (Basmati)", "sync": True},
+        headers=auth_headers,
+    )
+
+    listing = await client.get(
+        f"/locations/{other_location['id']}/items", headers=other_headers
+    )
+    synced = next(i for i in listing.json() if i["id"] == other_item.json()["id"])
+    assert synced["name"] == "Riz"

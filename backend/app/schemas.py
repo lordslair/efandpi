@@ -48,6 +48,7 @@ class ItemUpdate(BaseModel):
     brand: str | None = None
     barcode: str | None = None
     quantity: int | None = None
+    sync: bool = False
 
 
 class ItemOut(BaseModel):
@@ -61,6 +62,11 @@ class ItemOut(BaseModel):
     added_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ItemLocationSummary(BaseModel):
+    location_id: int
+    location_name: str
 
 
 # Open Food Facts lookup result
