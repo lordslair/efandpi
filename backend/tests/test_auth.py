@@ -1,7 +1,7 @@
 import pytest
 from httpx import AsyncClient
 
-from app.auth import hash_password, verify_password
+from app.auth import _require_secret_key, hash_password, verify_password
 
 
 def test_hash_and_verify_password():
@@ -9,6 +9,16 @@ def test_hash_and_verify_password():
     assert hashed != "my-password"
     assert verify_password("my-password", hashed)
     assert not verify_password("wrong-password", hashed)
+
+
+def test_require_secret_key_accepts_a_real_value():
+    assert _require_secret_key("a-real-secret") == "a-real-secret"
+
+
+@pytest.mark.parametrize("value", [None, "", "   "])
+def test_require_secret_key_exits_when_unset_or_blank(value):
+    with pytest.raises(SystemExit, match="SECRET_KEY"):
+        _require_secret_key(value)
 
 
 @pytest.mark.asyncio

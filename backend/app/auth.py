@@ -12,7 +12,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .database import get_db
 from .models import User
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
+def _require_secret_key(value: str | None) -> str:
+    if value is None or not value.strip():
+        raise SystemExit(
+            "SECRET_KEY environment variable must be set to a non-empty secret. "
+            "Refusing to start with no secret configured."
+        )
+    return value
+
+
+SECRET_KEY = _require_secret_key(os.getenv("SECRET_KEY"))
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))
 
