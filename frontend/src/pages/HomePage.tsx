@@ -67,7 +67,7 @@ export default function HomePage() {
       {/* Header */}
       <header className="bg-brand-600 text-white px-4 py-4 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">🧊</span>
+          <img src="/pwa-512.png" alt="EfanDpi logo" className="w-8 h-8 rounded-lg" />
           <h1 className="text-xl font-bold tracking-tight">EfanDpi</h1>
         </div>
         <button

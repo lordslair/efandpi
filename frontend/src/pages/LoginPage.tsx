@@ -35,7 +35,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-brand-50">
       {/* Logo / Header */}
       <div className="mb-8 text-center">
-        <div className="text-5xl mb-3">🧊</div>
+        <img src="/pwa-512.png" alt="EfanDpi logo" className="w-20 h-20 mx-auto mb-3 rounded-2xl" />
         <h1 className="text-3xl font-bold text-brand-700">EfanDpi</h1>
         <p className="text-gray-500 mt-1 text-sm">Your smart pantry tracker</p>
       </div>
