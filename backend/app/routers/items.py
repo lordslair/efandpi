@@ -202,6 +202,9 @@ async def update_item(
     if payload.brand is not None:
         item.brand = payload.brand.strip() or None
 
+    if payload.starred is not None:
+        item.starred = payload.starred
+
     if payload.barcode is not None:
         barcode = payload.barcode.strip()
         if not barcode:

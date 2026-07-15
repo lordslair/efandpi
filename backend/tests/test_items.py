@@ -508,3 +508,72 @@ async def test_sync_does_not_affect_other_users_items(
     )
     synced = next(i for i in listing.json() if i["id"] == other_item.json()["id"])
     assert synced["name"] == "Riz"
+
+
+@pytest.mark.asyncio
+async def test_new_item_is_not_starred_by_default(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    create = await client.post(
+        f"/locations/{location['id']}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "quantity": 1},
+        headers=auth_headers,
+    )
+    assert create.json()["starred"] is False
+
+
+@pytest.mark.asyncio
+async def test_can_star_and_unstar_an_item(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    location_id = location["id"]
+    create = await client.post(
+        f"/locations/{location_id}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "quantity": 1},
+        headers=auth_headers,
+    )
+    item_id = create.json()["id"]
+
+    star = await client.patch(
+        f"/locations/{location_id}/items/{item_id}",
+        json={"starred": True},
+        headers=auth_headers,
+    )
+    assert star.status_code == 200
+    assert star.json()["starred"] is True
+
+    unstar = await client.patch(
+        f"/locations/{location_id}/items/{item_id}",
+        json={"starred": False},
+        headers=auth_headers,
+    )
+    assert unstar.status_code == 200
+    assert unstar.json()["starred"] is False
+
+
+@pytest.mark.asyncio
+async def test_starring_does_not_affect_other_fields(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    location: dict,
+):
+    location_id = location["id"]
+    create = await client.post(
+        f"/locations/{location_id}/items",
+        json={"barcode": "1112223334445", "name": "Rice", "brand": "Uncle Ben's", "quantity": 3},
+        headers=auth_headers,
+    )
+    item_id = create.json()["id"]
+
+    star = await client.patch(
+        f"/locations/{location_id}/items/{item_id}",
+        json={"starred": True},
+        headers=auth_headers,
+    )
+    assert star.json()["name"] == "Rice"
+    assert star.json()["brand"] == "Uncle Ben's"
+    assert star.json()["quantity"] == 3

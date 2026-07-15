@@ -8,6 +8,7 @@ interface ItemCardProps {
     quantity: number;
     thumbnail_url?: string | null;
     custom_image_url?: string | null;
+    starred?: boolean;
   };
   readOnly?: boolean;
   outOfStock?: boolean;
@@ -15,6 +16,7 @@ interface ItemCardProps {
   onDelete?: () => void;
   onEditPhoto?: () => void;
   onOpenDetail?: () => void;
+  onToggleStar?: () => void;
 }
 
 const FALLBACK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23f3f4f6'/%3E%3Ctext x='40' y='48' font-size='32' text-anchor='middle'%3E🥫%3C/text%3E%3C/svg%3E";
@@ -27,16 +29,28 @@ export default function ItemCard({
   onDelete,
   onEditPhoto,
   onOpenDetail,
+  onToggleStar,
 }: ItemCardProps) {
   const clickable = !readOnly && !!onOpenDetail;
   return (
     <div
-      className={`flex items-center gap-3 rounded-2xl border p-3 shadow-sm ${
+      className={`relative flex items-center gap-3 rounded-2xl border p-3 shadow-sm ${
         outOfStock
           ? "bg-gray-100 border-gray-200"
           : "bg-white border-gray-100"
       }`}
     >
+      {!readOnly && onToggleStar && (
+        <button
+          onClick={onToggleStar}
+          className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-white shadow
+                     flex items-center justify-center text-base active:scale-90 transition-transform"
+          aria-label={item.starred ? "Unstar item" : "Star item"}
+        >
+          {item.starred ? "⭐" : "☆"}
+        </button>
+      )}
+
       {/* Thumbnail */}
       <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
         <img

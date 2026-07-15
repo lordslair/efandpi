@@ -20,6 +20,7 @@ export const MOCK_ITEM = {
   quantity: 2,
   thumbnail_url: null,
   custom_image_url: null,
+  starred: false,
   added_at: "2026-01-01T00:00:00Z",
 };
 
@@ -114,8 +115,8 @@ export const handlers = [
   }),
 
   http.patch(api("/locations/:id/items/:itemId"), async ({ request }) => {
-    const body = (await request.json()) as { quantity: number };
-    return HttpResponse.json({ ...MOCK_ITEM, quantity: body.quantity });
+    const body = (await request.json()) as Partial<typeof MOCK_ITEM>;
+    return HttpResponse.json({ ...MOCK_ITEM, ...body });
   }),
 
   http.delete(

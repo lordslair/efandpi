@@ -184,6 +184,7 @@ describe("uploadItemImage()", () => {
           quantity: 1,
           thumbnail_url: null,
           custom_image_url: "https://example.com/custom.jpg",
+          starred: false,
           added_at: "2026-01-01T00:00:00Z",
         });
       })
@@ -209,6 +210,7 @@ describe("deleteItemImage()", () => {
           quantity: 1,
           thumbnail_url: null,
           custom_image_url: null,
+          starred: false,
           added_at: "2026-01-01T00:00:00Z",
         })
       )

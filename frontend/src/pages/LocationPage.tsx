@@ -140,6 +140,15 @@ export default function LocationPage() {
     setItems((prev) => prev.filter((i) => i.id !== itemId));
   }
 
+  async function handleToggleStar(item: api.Item) {
+    try {
+      const updated = await api.updateItem(locationId, item.id, { starred: !item.starred });
+      setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+    } catch {
+      // silent
+    }
+  }
+
   function handleItemAdded(item: api.Item) {
     setItems((prev) => {
       const idx = prev.findIndex((i) => i.id === item.id);
@@ -152,8 +161,14 @@ export default function LocationPage() {
     });
   }
 
-  const inStockItems = items.filter((item) => item.quantity > 0);
-  const outOfStockItems = items.filter((item) => item.quantity === 0);
+  // Starred items float to the top; Array.sort is stable, and `items` itself
+  // keeps its original order, so unstarring an item returns it to its
+  // original place among the rest.
+  const starredFirst = (list: api.Item[]) =>
+    [...list].sort((a, b) => Number(b.starred) - Number(a.starred));
+
+  const inStockItems = starredFirst(items.filter((item) => item.quantity > 0));
+  const outOfStockItems = starredFirst(items.filter((item) => item.quantity === 0));
 
   const FALLBACK =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23f3f4f6'/%3E%3Ctext x='40' y='48' font-size='32' text-anchor='middle'%3E🥫%3C/text%3E%3C/svg%3E";
@@ -233,6 +248,7 @@ export default function LocationPage() {
                 onDelete={() => handleDelete(item.id)}
                 onEditPhoto={() => setPhotoItem(item)}
                 onOpenDetail={() => setDetailItem(item)}
+                onToggleStar={() => handleToggleStar(item)}
               />
             ))}
 
@@ -251,6 +267,7 @@ export default function LocationPage() {
                       onDelete={() => handleDelete(item.id)}
                       onEditPhoto={() => setPhotoItem(item)}
                       onOpenDetail={() => setDetailItem(item)}
+                      onToggleStar={() => handleToggleStar(item)}
                     />
                   ))}
                 </div>

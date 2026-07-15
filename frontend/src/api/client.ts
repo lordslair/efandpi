@@ -73,6 +73,7 @@ export interface Item {
   quantity: number;
   thumbnail_url: string | null;
   custom_image_url: string | null;
+  starred: boolean;
   added_at: string;
 }
 
@@ -163,6 +164,7 @@ export interface ItemUpdate {
   brand?: string | null;
   barcode?: string;
   quantity?: number;
+  starred?: boolean;
   sync?: boolean;
 }
 

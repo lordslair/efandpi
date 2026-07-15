@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, ForeignKey, DateTime, UniqueConstraint
+from sqlalchemy import Boolean, String, Integer, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
 import uuid
@@ -51,6 +51,7 @@ class Item(Base):
     quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
     custom_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    starred: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     added_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

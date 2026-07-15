@@ -48,6 +48,7 @@ class ItemUpdate(BaseModel):
     brand: str | None = None
     barcode: str | None = None
     quantity: int | None = None
+    starred: bool | None = None
     sync: bool = False
 
 
@@ -59,6 +60,7 @@ class ItemOut(BaseModel):
     quantity: int
     thumbnail_url: str | None
     custom_image_url: str | None
+    starred: bool
     added_at: datetime
 
     model_config = {"from_attributes": True}

@@ -18,6 +18,7 @@ const BASE_ITEM: Item = {
   quantity: 3,
   thumbnail_url: "https://example.com/off-thumb.jpg",
   custom_image_url: null,
+  starred: false,
   added_at: "2026-01-01T00:00:00Z",
 };
 

@@ -13,6 +13,7 @@ const BASE_ITEM: Item = {
   quantity: 3,
   thumbnail_url: null,
   custom_image_url: null,
+  starred: false,
   added_at: "2026-01-01T00:00:00Z",
 };
 
@@ -130,6 +131,45 @@ describe("ItemCard — open detail", () => {
     );
     await user.click(screen.getByRole("button", { name: "View product details" }));
     expect(onOpenDetail).toHaveBeenCalledOnce();
+  });
+});
+
+describe("ItemCard — star", () => {
+  it("does not render a star button when onToggleStar is not provided", () => {
+    renderCard();
+    expect(screen.queryByRole("button", { name: "Star item" })).not.toBeInTheDocument();
+  });
+
+  it("does not render a star button in readOnly mode", () => {
+    render(<ItemCard item={BASE_ITEM} readOnly onToggleStar={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Star item" })).not.toBeInTheDocument();
+  });
+
+  it("shows an empty star and 'Star item' label when the item is not starred", () => {
+    render(
+      <ItemCard item={{ ...BASE_ITEM, starred: false }} onToggleStar={vi.fn()} />
+    );
+    const button = screen.getByRole("button", { name: "Star item" });
+    expect(button).toHaveTextContent("☆");
+  });
+
+  it("shows a filled star and 'Unstar item' label when the item is starred", () => {
+    render(
+      <ItemCard item={{ ...BASE_ITEM, starred: true }} onToggleStar={vi.fn()} />
+    );
+    const button = screen.getByRole("button", { name: "Unstar item" });
+    expect(button).toHaveTextContent("⭐");
+  });
+
+  it("calls onToggleStar when the star button is clicked", async () => {
+    const user = userEvent.setup();
+    const onToggleStar = vi.fn();
+    render(
+      <ItemCard item={{ ...BASE_ITEM, starred: false }} onToggleStar={onToggleStar} />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Star item" }));
+    expect(onToggleStar).toHaveBeenCalledOnce();
   });
 });
 

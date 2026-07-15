@@ -28,6 +28,10 @@ def _migrate_schema(connection) -> None:
         connection.execute(text("ALTER TABLE items ADD COLUMN brand VARCHAR"))
     if "custom_image_url" not in columns:
         connection.execute(text("ALTER TABLE items ADD COLUMN custom_image_url VARCHAR"))
+    if "starred" not in columns:
+        connection.execute(
+            text("ALTER TABLE items ADD COLUMN starred BOOLEAN NOT NULL DEFAULT 0")
+        )
 
 
 async def init_db():

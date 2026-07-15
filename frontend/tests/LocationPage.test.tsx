@@ -70,6 +70,7 @@ const MOCK_ITEMS = [
     quantity: 2,
     thumbnail_url: null,
     custom_image_url: null,
+    starred: false,
     added_at: "2026-01-01T00:00:00Z",
   },
 ];
@@ -461,6 +462,109 @@ describe("LocationPage — item quantity and delete", () => {
       expect(screen.queryByText("Nutella")).not.toBeInTheDocument()
     );
     expect(screen.getByText("This location is empty")).toBeInTheDocument();
+  });
+});
+
+function makeStarTestItems() {
+  return [
+    {
+      id: 1,
+      barcode: "1",
+      name: "Apple",
+      brand: null,
+      quantity: 2,
+      thumbnail_url: null,
+      custom_image_url: null,
+      starred: false,
+      added_at: "2026-01-01T00:00:00Z",
+    },
+    {
+      id: 2,
+      barcode: "2",
+      name: "Banana",
+      brand: null,
+      quantity: 2,
+      thumbnail_url: null,
+      custom_image_url: null,
+      starred: false,
+      added_at: "2026-01-01T00:00:00Z",
+    },
+    {
+      id: 3,
+      barcode: "3",
+      name: "Cherry",
+      brand: null,
+      quantity: 2,
+      thumbnail_url: null,
+      custom_image_url: null,
+      starred: false,
+      added_at: "2026-01-01T00:00:00Z",
+    },
+  ];
+}
+
+describe("LocationPage — starring items", () => {
+  let items: ReturnType<typeof makeStarTestItems>;
+
+  function itemNamesInOrder() {
+    return screen.getAllByText(/^(Apple|Banana|Cherry)$/).map((el) => el.textContent);
+  }
+
+  beforeEach(() => {
+    items = makeStarTestItems();
+    server.use(
+      http.get(api("/locations/:id/items"), () => HttpResponse.json(items)),
+      http.patch(api("/locations/:id/items/:itemId"), async ({ request, params }) => {
+        const body = (await request.json()) as Partial<(typeof items)[number]>;
+        const target = items.find((i) => i.id === Number(params.itemId));
+        if (target) Object.assign(target, body);
+        return HttpResponse.json(target);
+      })
+    );
+  });
+
+  it("renders items in their original order when none are starred", async () => {
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Apple");
+
+    expect(itemNamesInOrder()).toEqual(["Apple", "Banana", "Cherry"]);
+  });
+
+  it("moves a starred item to the top of the list", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Apple");
+
+    const starButtons = screen.getAllByRole("button", { name: "Star item" });
+    await user.click(starButtons[2]); // Cherry
+
+    await waitFor(() => expect(itemNamesInOrder()).toEqual(["Cherry", "Apple", "Banana"]));
+  });
+
+  it("returns an unstarred item to its original place", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Apple");
+
+    await user.click(screen.getAllByRole("button", { name: "Star item" })[2]); // Cherry
+    await waitFor(() => expect(itemNamesInOrder()).toEqual(["Cherry", "Apple", "Banana"]));
+
+    await user.click(screen.getByRole("button", { name: "Unstar item" }));
+    await waitFor(() => expect(itemNamesInOrder()).toEqual(["Apple", "Banana", "Cherry"]));
+  });
+
+  it("keeps multiple starred items above unstarred ones, in their original relative order", async () => {
+    const user = userEvent.setup();
+    renderLocationPage(1, { name: "Fridge" });
+    await screen.findByText("Apple");
+
+    await user.click(screen.getAllByRole("button", { name: "Star item" })[2]); // Cherry
+    await waitFor(() => expect(itemNamesInOrder()).toEqual(["Cherry", "Apple", "Banana"]));
+
+    // Banana is the remaining "Star item" button (Apple, Banana — Cherry is now "Unstar item")
+    await user.click(screen.getAllByRole("button", { name: "Star item" })[1]);
+    // Both starred items keep their original relative order (Banana before Cherry)
+    await waitFor(() => expect(itemNamesInOrder()).toEqual(["Banana", "Cherry", "Apple"]));
   });
 });
 
