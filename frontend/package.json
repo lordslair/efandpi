@@ -31,7 +31,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "@vitest/coverage-v8": "^4.1.10",
     "autoprefixer": "^10.5.4",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.1",
     "msw": "^2.15.0",
     "postcss": "^8.5.23",
     "sharp": "^0.35.3",
