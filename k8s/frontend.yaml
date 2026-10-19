@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: efandpi
+  name: efandpi-frontend
+  labels:
+    app: efandpi-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: efandpi-frontend
+  template:
+    metadata:
+      labels:
+        app: efandpi-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: lordslair/efandpi-frontend:edge
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: efandpi
+  name: efandpi-frontend
+spec:
+  selector:
+    app: efandpi-frontend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
