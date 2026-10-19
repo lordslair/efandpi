@@ -1,0 +1,58 @@
+# Reusable pytest job for backend/. Must not need any secret: it also runs on pull requests.
+# Never runs on its own, only called by the pipeline-* workflows.
+
+name: Tests (backend)
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+    - name: Checkout 🛎️
+      uses: actions/checkout@v7
+
+    # CI runs the same Python as the image: the version comes from the Dockerfile only
+    - name: Read Python version 🔍
+      id: python
+      run: |
+        version=$(sed -nE 's/^FROM python:([0-9]+\.[0-9]+).*/\1/p' Dockerfile | head -1)
+        if [ -z "$version" ]; then
+          echo "::error::No 'FROM python:X.Y' found in backend/Dockerfile"
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    - name: Set up Python ${{ steps.python.outputs.version }} 🐍
+      uses: actions/setup-python@v7
+      with:
+        python-version: ${{ steps.python.outputs.version }}
+        cache: pip
+        cache-dependency-path: |
+          backend/requirements.txt
+          backend/requirements-tests.txt
+
+    - name: Install requirements ⏬
+      run: pip install -r requirements.txt -r requirements-tests.txt
+
+    # pytest exits 5 when it collects nothing: accept an empty suite with a warning,
+    # fail on anything else.
+    - name: Test with PyTest ⚙️
+      run: |
+        rc=0
+        pytest || rc=$?
+        if [ "$rc" -eq 5 ]; then
+          echo "::warning::No tests collected"
+          exit 0
+        fi
+        exit "$rc"

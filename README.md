@@ -131,7 +131,8 @@ efandpi/
 ├── backend/
 │   ├── Dockerfile
 │   ├── requirements.txt
-│   ├── requirements-dev.txt # pytest + pytest-asyncio
+│   ├── requirements-tests.txt # pytest + pytest-asyncio
+│   ├── requirements-lint.txt # flake8 (CI lint)
 │   ├── pytest.ini
 │   ├── scripts/
 │   │   └── export_openapi.py # Export openapi.json + openapi.yaml from the app
@@ -271,7 +272,7 @@ The `caddy/Caddyfile` terminates TLS and reverse-proxies each domain to the corr
 cd backend
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r requirements.txt -r requirements-tests.txt
 cp ../.env.example ../.env
 export $(grep -v '^#' ../.env | xargs)
 mkdir -p ../data
@@ -292,13 +293,13 @@ The Vite dev server proxies `/api/*` → `http://localhost:5000/*` automatically
 
 ## Testing
 
-Both backend and frontend have test suites run in CI on pull requests.
+Both backend and frontend have test suites, run in CI before any image is built (see [GitHub Actions pipelines](#github-actions-pipelines)).
 
 ### Backend (pytest)
 
 ```bash
 cd backend
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r requirements.txt -r requirements-tests.txt
 pytest
 ```
 
@@ -313,6 +314,21 @@ npm run test:coverage   # generate coverage/ report
 ```
 
 See `frontend/TESTING.md` for the full testing guide (MSW, patterns, configuration).
+
+---
+
+## GitHub Actions pipelines
+
+| Workflow | Trigger | Does |
+|----------|---------|------|
+| Pipeline Tests | push / PR to `main`, manual run | lint + tests (backend, frontend), builds both images; pushes `edge` and the short SHA on pushes to `main` only |
+| Pipeline Release | push of a `v*` tag | lint + tests, then pushes `X.Y.Z`, `X.Y`, the short SHA and `latest` |
+
+Images: `lordslair/efandpi-backend`, `lordslair/efandpi-frontend` (`linux/amd64`, `linux/arm64`).
+
+To release: `git tag v1.2.3 && git push origin v1.2.3`.
+
+Conventions and how to test workflow changes: [.github/workflows/WORKFLOWS.md](.github/workflows/WORKFLOWS.md).
 
 ---
 
