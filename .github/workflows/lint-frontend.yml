@@ -1,0 +1,48 @@
+# Reusable TypeScript type-check job for frontend/ (tsc --noEmit).
+# Never runs on its own, only called by the pipeline-* workflows.
+
+name: Lint (frontend)
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+    - name: Checkout 🛎️
+      uses: actions/checkout@v7
+
+    # CI runs the same Node as the image: the version comes from the Dockerfile's
+    # node: build stage only (the final stage is nginx)
+    - name: Read Node version 🔍
+      id: node
+      run: |
+        version=$(sed -nE 's/^FROM node:([0-9]+).*/\1/p' Dockerfile | head -1)
+        if [ -z "$version" ]; then
+          echo "::error::No 'FROM node:X' found in frontend/Dockerfile"
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    - name: Set up Node ${{ steps.node.outputs.version }} 🟢
+      uses: actions/setup-node@v7
+      with:
+        node-version: ${{ steps.node.outputs.version }}
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install requirements ⏬
+      run: npm ci
+
+    - name: Type-check with tsc 📝
+      run: npx tsc --noEmit

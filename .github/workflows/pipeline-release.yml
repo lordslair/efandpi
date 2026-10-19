@@ -1,0 +1,93 @@
+# Release pipeline, run on push of a v* tag (e.g. v1.2.3).
+# Lint + tests, then builds and pushes {{version}}, {{major}}.{{minor}}, short SHA and latest
+# for both images (backend, frontend).
+
+name: Pipeline Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+# Releases run one at a time, so an older tag can never push latest after a newer one.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  lint-backend:
+    uses: ./.github/workflows/lint-backend.yml
+
+  tests-backend:
+    uses: ./.github/workflows/tests-backend.yml
+
+  lint-frontend:
+    uses: ./.github/workflows/lint-frontend.yml
+
+  tests-frontend:
+    uses: ./.github/workflows/tests-frontend.yml
+
+  build-push:
+    runs-on: ubuntu-24.04
+    # Multi-arch build through QEMU (arm64 is emulated): about 5 min uncached, above the 10 min default
+    timeout-minutes: 15
+
+    needs:
+    - lint-backend
+    - tests-backend
+    - lint-frontend
+    - tests-frontend
+
+    strategy:
+      # One app failing must not cancel the other: each image is pushed or not on its own result
+      fail-fast: false
+      matrix:
+        app: [ backend, frontend ]
+
+    steps:
+    - name: Checkout 🛎️
+      uses: actions/checkout@v7
+
+    - name: Log in to Docker Hub 🔐
+      uses: docker/login-action@v4
+      with:
+        username: ${{ vars.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Extracting Metadata 🔧
+      id: meta
+      uses: docker/metadata-action@v6
+      with:
+        images: ${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}-${{ matrix.app }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix=,suffix=,format=short
+          type=raw,value=latest
+
+    # Images run on amd64 and arm64 hosts; arm64 is built through QEMU (emulated)
+    - name: Set up QEMU 🔧
+      uses: docker/setup-qemu-action@v4
+
+    - name: Set up Docker Buildx 🐳
+      uses: docker/setup-buildx-action@v4
+
+    # Read-only cache: a tag's cache could only be reused by that same tag,
+    # so reuse the one main's edge builds already filled (same scope per app).
+    - name: Build 🏗️ & Push to Docker Hub 🚀
+      uses: docker/build-push-action@v7
+      with:
+        context: ./${{ matrix.app }}
+        file: ./${{ matrix.app }}/Dockerfile
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        # For the app to show what it runs (e.g. 1.2.3 or edge, and the commit SHA)
+        build-args: |
+          VERSION=${{ steps.meta.outputs.version }}
+          COMMIT=${{ github.sha }}
+        cache-from: type=gha,scope=${{ matrix.app }}
